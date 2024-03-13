@@ -1,8 +1,10 @@
-﻿using static KmoniReproducer.Program;
+﻿using System.Data;
+using static KmoniReproducer.Program;
+
 namespace KmoniReproducer
 {
     /// <summary>
-    /// 一地震での加速度データ
+    /// 一地震での加速度データと地震データ
     /// </summary>
     public class Data
     {
@@ -55,7 +57,6 @@ namespace KmoniReproducer
         /// </summary>
         public class ObsData
         {
-
             /// <summary>
             /// ファイル名を指定してObsDataを初期化します。
             /// </summary>
@@ -115,7 +116,7 @@ namespace KmoniReproducer
             public string DataDir { get; set; } = "";
 
             /// <summary>
-            /// 観測データ
+            /// 加速度データ
             /// </summary>
             public double[] Accs { get; set; } = [];
         }
@@ -126,27 +127,29 @@ namespace KmoniReproducer
     /// </summary>
     public class Data_Draw
     {
-
-        public static Data_Draw Data2Data_Draw(Data data)
+        /// <summary>
+        /// 震度データを追加します。
+        /// </summary>
+        /// <param name="obsData">観測データ</param>
+        /// <param name="intTime">震度の時刻</param>
+        /// <param name="jInt">震度</param>
+        public void AddInt(Data.ObsData obsData, DateTime intTime, double jInt)
         {
-
-
-
-
-
-
-
+            if (!Datas_Draw.ContainsKey(obsData.StationName))
+                Datas_Draw.Add(obsData.StationName, new ObsData(obsData));
+            Datas_Draw[obsData.StationName].TimeInt.Add(intTime, jInt);
         }
 
         /// <summary>
         /// 観測点のデータのリスト
         /// </summary>
-        public Dictionary<string, ObsData>? Datas_Draw { get; set; }
+        /// <remarks><c>StationName</c>, <c>ObsData</c></remarks>
+        public Dictionary<string, ObsData> Datas_Draw { get; set; } = [];
 
         /// <summary>
         /// 一観測点のデータ
         /// </summary>
-        /// <param name="obsData"></param>
+        /// <param name="obsData">観測データ</param>
         public class ObsData(Data.ObsData obsData)
         {
             /// <summary>
@@ -168,7 +171,6 @@ namespace KmoniReproducer
             /// 時刻ごとの震度
             /// </summary>
             public Dictionary<DateTime, double> TimeInt { get; set; } = [];
-
         }
     }
 }

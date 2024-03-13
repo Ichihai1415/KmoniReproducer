@@ -15,8 +15,8 @@ namespace KmoniReproducer
 
 
             var data = GetDataFromKNETASCII();
-            Acc2JI(data);
-
+            var drawData = new Data_Draw();
+            Acc2JI(data, ref drawData);
 
 
 
@@ -27,6 +27,11 @@ namespace KmoniReproducer
             Console.WriteLine();
         }
 
+        /// <summary>
+        /// .tar.gzファイルを展開します。
+        /// </summary>
+        /// <remarks>展開後元のファイルは削除されます。展開後に.tar.gzファイルがある場合再実行します。</remarks>
+        /// <param name="dir">ファイルがあるディレクトリ</param>
         public static void OpenTarGz(string dir)
         {
             ConWrite("展開中...");
@@ -43,19 +48,23 @@ namespace KmoniReproducer
                     using var tarArchive = TarArchive.CreateInputTarArchive(gzStream, System.Text.Encoding.ASCII);
                     tarArchive.ExtractContents(targzFile.Replace(".tar.gz", ""));
                 }
-                Thread.Sleep(100);//待たないと使用中
+                Thread.Sleep(100);//待たないと使用中例外
                 foreach (var targzFile in targzFiles)
                     File.Delete(targzFile);
             }
         }
 
+        /// <summary>
+        /// K-NET ASCII形式のデータをDataに格納します。
+        /// </summary>
+        /// <returns>読み込んだデータ</returns>
         public static Data? GetDataFromKNETASCII()
         {
-            string dir = ConAsk("強震データがあるフォルダ名を入力してください。").Replace("\"", "");
+            var dir = ConAsk("強震データがあるフォルダ名を入力してください。").Replace("\"", "");
             var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
             if (targzFiles.Length != 0)
             {
-                bool ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
                 if (ok)
                     OpenTarGz(dir);
             }
@@ -67,23 +76,36 @@ namespace KmoniReproducer
                 return null;
             }
 
-
             return KNET_ASCII2Data(files);
         }
 
-        public static void Acc2JI(Data data)
+        /// <summary>
+        /// 加速度から震度を求めます。<c>Data</c>内部に保存されます。
+        /// </summary>
+        /// <remarks>開始時刻:発生時刻　終了時刻:発生時刻+3分　描画間隔:1秒</remarks>
+        /// <param name="data">加速度データ</param>
+        /// <param name="drawData">描画用データ(ref)</param>
+        public static void Acc2JI(Data data, ref Data_Draw drawData)
         {
+            Acc2JI(data, ref drawData, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1));
+        }
 
-            DateTime startTime = data.OriginTime;
-            DateTime endTime = startTime.AddSeconds(180);
-            TimeSpan calSpan = TimeSpan.FromSeconds(60);
-
-            for (DateTime drawTime = startTime; drawTime < endTime; drawTime += calSpan)
+        /// <summary>
+        /// 加速度から震度を求めます。<c>Data</c>内部に保存されます。
+        /// </summary>
+        /// <param name="data">加速度データ</param>
+        /// <param name="drawData">描画用データ(ref)</param>
+        /// <param name="startTime">開始時刻</param>
+        /// <param name="endTime">終了時刻</param>
+        /// <param name="calSpan">描画間隔</param>
+        public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan)
+        {
+            for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
-                    int startIndex = Math.Max((int)((drawTime.AddMinutes(-1) + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
-                    int endIndex = (int)((drawTime + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
-                    int count = endIndex - startIndex + 1;
+                    var startIndex = Math.Max((int)((drawTime.AddMinutes(-1) + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
+                    var endIndex = (int)((drawTime + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
+                    var count = endIndex - startIndex + 1;
                     //st 00:00:05  span 0.25  draw 00:00:15
                     //=>  00:00:05.25 <= data < 00:00:15.25  10.25sec (*max:60sec)
                     //dataCount=sec*freq=msec*freq/1000 (100Hz:max6000)
@@ -100,7 +122,7 @@ namespace KmoniReproducer
                     data3Ac = data3Ac.Select(rawAcc => rawAcc - data3Ac.Average()).ToArray();
                     //File.WriteAllText("data1Ac.txt", string.Join('\n', data1Ac));
 
-                    int nPow2 = 1;
+                    var nPow2 = 1;
                     while (nPow2 < count)
                         nPow2 *= 2;
                     Fill0(ref data1Ac, nPow2);
@@ -116,14 +138,14 @@ namespace KmoniReproducer
                     Fourier.Forward(data3AcC);
                     //File.WriteAllText("data1AcC-fou.txt", string.Join('\n', data1AcC.Select(x => $"{x.Real},{x.Imaginary}")));
 
-                    for (int i = 0; i < nPow2; i++)
+                    for (var i = 0; i < nPow2; i++)
                     {
-                        double f = (i + 1) / (double)nPow2 * data1.SamplingFreq;
-                        double y = f * 0.1;
-                        double fl = Math.Pow(1 - Math.Exp(-Math.Pow(f / 0.5, 3)), 0.5);
-                        double fh = Math.Pow(1 + 0.694 * Math.Pow(y, 2) + 0.241 * Math.Pow(y, 4) + 0.0557 * Math.Pow(y, 6) + 0.009664 * Math.Pow(y, 8) + 0.00134 * Math.Pow(y, 10) + 0.000155 * Math.Pow(y, 12), -0.5);
-                        double ff = Math.Pow(1 / f, 0.5);
-                        double fa = fl * fh * ff;
+                        var f = (i + 1) / (double)nPow2 * data1.SamplingFreq;
+                        var y = f * 0.1;
+                        var fl = Math.Pow(1 - Math.Exp(-Math.Pow(f / 0.5, 3)), 0.5);
+                        var fh = Math.Pow(1 + (0.694 * Math.Pow(y, 2)) + (0.241 * Math.Pow(y, 4)) + (0.0557 * Math.Pow(y, 6)) + (0.009664 * Math.Pow(y, 8)) + (0.00134 * Math.Pow(y, 10)) + (0.000155 * Math.Pow(y, 12)), -0.5);
+                        var ff = Math.Pow(1 / f, 0.5);
+                        var fa = fl * fh * ff;
                         data1AcC[i] *= fa;
                         data2AcC[i] *= fa;
                         data3AcC[i] *= fa;
@@ -140,124 +162,38 @@ namespace KmoniReproducer
                     Array.Sort(dataAcCR);
                     Array.Reverse(dataAcCR);
                     //File.WriteAllText("dataAcCR-sort.txt", string.Join('\n', dataAcCR));
-                    int index03 = (int)Math.Floor(0.3 * data1.SamplingFreq) - 1;
-                    double ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
+                    var index03 = (int)Math.Floor(0.3 * data1.SamplingFreq) - 1;
+                    var ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
 
-                    ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}");
-
-
+                    drawData.AddInt(data1, drawTime, ji);
+                    //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
                 }
-
-            /*
-
-
-
-            DateTime GetTime = StartTime;
-            double dataSecond = 0;
-            double[] AccX = new double[2048];
-            double[] AccY = new double[2048];
-            double[] AccZ = new double[2048];
-            string newcsv = "\n";
-
-            Console.WriteLine("データ取得中…");
-            for (int i = 0; i < 2048;)
-            {
-                string[] data_ = File.ReadAllText($"{Directory}\\{GetTime.Year}\\{GetTime.Month}\\{GetTime.Day}\\{GetTime.Hour}\\{GetTime.Minute}\\{GetTime:yyyyMMddHHmmss}.txt").Split('\n');
-                foreach (string data__ in data_)
-                {
-                    string[] data = data__.Split(',');
-                    if (data.Length == 4)
-                    {
-                        newcsv += $"\n{data[0]},{data[1]},{data[2]}";
-                        AccX[i] = double.Parse(data[0]);
-                        AccY[i] = double.Parse(data[1]);
-                        AccZ[i] = double.Parse(data[2]);
-                        dataSecond += 1.0 / data_.Length;
-                        i++;
-                        if (i >= 2048)
-                            break;
-                    }
-                }
-                GetTime += new TimeSpan(0, 0, 1);
-            }
-            File.WriteAllText("output.csv", newcsv.Replace("\n\n", ""));
-
-            Console.WriteLine("データ変換中…");
-            Complex Acc = new Complex(AccX[0], 0);
-            Complex[] AccXc = Array.ConvertAll(AccX, x => new Complex(x, 0));
-            Complex[] AccYc = Array.ConvertAll(AccY, x => new Complex(x, 0));
-            Complex[] AccZc = Array.ConvertAll(AccZ, x => new Complex(x, 0));
-
-            //フーリエ変換
-            Console.WriteLine("フーリエ変換中…");
-            Fourier.Forward(AccXc);
-            Fourier.Forward(AccYc);
-            Fourier.Forward(AccZc);
-
-            //フィルター
-            Console.WriteLine("フィルター計算中…");
-            for (int i = 0; i < 2048; i++)
-            {
-                double Hz = (i + 1) / dataSecond;
-                double y = Hz * 0.1;
-                //ローカットフィルター
-                double FL = Math.Pow(1 - Math.Exp(-1 * Math.Pow(Hz / 0.5, 3)), 0.5);
-                //ハイカットフィルター
-                double FH = Math.Pow(1 + 0.694 * Math.Pow(y, 2) + 0.241 * Math.Pow(y, 4) + 0.0557 * Math.Pow(y, 6) + 0.009664 * Math.Pow(y, 8) + 0.00134 * Math.Pow(y, 10) + 0.000155 * Math.Pow(y, 12), -0.5);
-                //周期効果フィルター
-                double FF = Math.Pow(1 / Hz, 0.5);
-                //フィルター合計
-                double FA = FL * FH * FF;
-                AccXc[i] *= FA;
-                AccZc[i] *= FA;
-                AccZc[i] *= FA;
-            }
-
-            //逆フーリエ変換
-            Console.WriteLine("逆フーリエ変換中…");
-            Fourier.Inverse(AccXc);
-            Fourier.Inverse(AccYc);
-            Fourier.Inverse(AccZc);
-
-            Console.WriteLine("計算中…");
-            double[] fdataX = new double[2048];
-            double[] fdataY = new double[2048];
-            double[] fdataZ = new double[2048];
-            for (int i = 0; i < 2048; i++)
-            {
-                fdataX[i] = AccXc[i].Magnitude;
-                fdataY[i] = AccYc[i].Magnitude;
-                fdataZ[i] = AccZc[i].Magnitude;
-            }
-            double[] fdataA = fdataX.Zip(fdataY, (a, b) => Math.Sqrt(a * a + b * b)).Zip(fdataZ, (a, b) => Math.Sqrt(a * a + b * b)).ToArray();
-            Array.Sort(fdataA);
-            Array.Reverse(fdataA);
-            int index = (int)Math.Floor(0.3 / dataSecond * 2048);
-            double JI = Math.Round((2 * Math.Log(fdataA[index], 10)) + 0.96, 2, MidpointRounding.AwayFromZero);
-            Console.WriteLine("計算終了");
-            Console.WriteLine(JI);
-
-            */
-
-
-
-
         }
 
-
-        public static void Fill0(ref double[] srcArray, int nPow2)
+        /// <summary>
+        /// double配列を0埋めします。
+        /// </summary>
+        /// <param name="srcArray">元の配列(ref)</param>
+        /// <param name="length">埋めるサイズ</param>
+        public static void Fill0(ref double[] srcArray, int length)
         {
-            var newArray = new double[nPow2];
+            var newArray = new double[length];
             Array.Copy(srcArray, 0, newArray, 0, srcArray.Length);
             srcArray = newArray;
         }
 
+        /// <summary>
+        /// コンソールで入力を求めます。
+        /// </summary>
+        /// <param name="message">表示するメッセージ</param>
+        /// <param name="allowNull">空文字入力を許容するか</param>
+        /// <returns></returns>
         public static string ConAsk(string message, bool allowNull = false)
         {
             ConWrite(message);
         retry:
-            string? ans = Console.ReadLine();
+            var ans = Console.ReadLine();
             if (allowNull)
                 return ans ?? "";
             else if (string.IsNullOrEmpty(ans))
@@ -268,8 +204,6 @@ namespace KmoniReproducer
             else
                 return ans;
         }
-
-
 
         /// <summary>
         /// コンソールのデフォルトの色
