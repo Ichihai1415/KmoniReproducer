@@ -2,6 +2,7 @@
 using MathNet.Numerics.IntegralTransforms;
 using System.IO.Compression;
 using System.Numerics;
+using System.Text;
 using static KmoniReproducer.Data;
 
 namespace KmoniReproducer
@@ -10,21 +11,68 @@ namespace KmoniReproducer
     {
         static void Main(string[] args)
         {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var data2 = GetDataFromJMAcsv();
+            var drawData = new Data_Draw();
+            Acc2JI(data2, ref drawData);
 
-
-
+            /*
 
             var data = GetDataFromKNETASCII();
+            var data2 = GetDataFromJMAcsv();
+            data.AddObsDatas(data2);
+
             var drawData = new Data_Draw();
             Acc2JI(data, ref drawData);
 
 
-
+            */
 
 
 
 
             Console.WriteLine();
+        }
+
+        /// <summary>
+        /// K-NET ASCII形式のデータをDataに格納します。
+        /// </summary>
+        /// <returns>読み込んだデータ</returns>
+        public static Data? GetDataFromKNETASCII()
+        {
+            var dir = ConAsk("K-NET,KiK-net(地表のみ)の強震データ(.NS/.EW/.UD/.NS2/.EW2/.UD2)があるフォルダ名を入力してください。.tar.gzがある場合後で展開の確認が出ます。").Replace("\"", "");
+            var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
+            if (targzFiles.Length != 0)
+            {
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
+                if (ok)
+                    OpenTarGz(dir);
+            }
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 取得中...", ConsoleColor.Blue);
+            var files = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Where(f => f.EndsWith(".NS") || f.EndsWith(".EW") || f.EndsWith(".UD") || f.EndsWith(".NS2") || f.EndsWith(".EW2") || f.EndsWith(".UD2")).ToArray();
+            if (files.Length == 0)
+            {
+                ConWrite("見つかりませんでした。", ConsoleColor.Red);
+                return null;
+            }
+            return KNET_ASCII2Data(files);
+        }
+
+        /// <summary>
+        /// 気象庁加速度データをDataに格納します。
+        /// </summary>
+        /// <returns>読み込んだデータ</returns>
+        public static Data? GetDataFromJMAcsv()
+        {
+            var dir = ConAsk("気象庁の強震データ(.csv)があるフォルダ名を入力してください。指定したフォルダのすべてのcsvファイル(level.csvを除く)を読み込みます。").Replace("\"", "");
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 取得中...", ConsoleColor.Blue);
+            var files = Directory.EnumerateFiles(dir, "*.csv", SearchOption.AllDirectories).ToArray();
+            if (files.Length == 0)
+            {
+                ConWrite("見つかりませんでした。", ConsoleColor.Red);
+                return null;
+            }
+            return JMAcsv2Data(files.Where(x => !x.EndsWith("level.csv")).ToArray());
         }
 
         /// <summary>
@@ -34,7 +82,7 @@ namespace KmoniReproducer
         /// <param name="dir">ファイルがあるディレクトリ</param>
         public static void OpenTarGz(string dir)
         {
-            ConWrite("展開中...");
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開中...", ConsoleColor.Blue);
             while (true)
             {
                 var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories);
@@ -45,38 +93,13 @@ namespace KmoniReproducer
                     ConWrite(targzFile, ConsoleColor.Green);
                     using var tgzStream = File.OpenRead(targzFile);
                     using var gzStream = new GZipStream(tgzStream, CompressionMode.Decompress);
-                    using var tarArchive = TarArchive.CreateInputTarArchive(gzStream, System.Text.Encoding.ASCII);
+                    using var tarArchive = TarArchive.CreateInputTarArchive(gzStream, Encoding.ASCII);
                     tarArchive.ExtractContents(targzFile.Replace(".tar.gz", ""));
                 }
                 Thread.Sleep(100);//待たないと使用中例外
                 foreach (var targzFile in targzFiles)
                     File.Delete(targzFile);
             }
-        }
-
-        /// <summary>
-        /// K-NET ASCII形式のデータをDataに格納します。
-        /// </summary>
-        /// <returns>読み込んだデータ</returns>
-        public static Data? GetDataFromKNETASCII()
-        {
-            var dir = ConAsk("強震データがあるフォルダ名を入力してください。").Replace("\"", "");
-            var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
-            if (targzFiles.Length != 0)
-            {
-                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
-                if (ok)
-                    OpenTarGz(dir);
-            }
-            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 取得中...");
-            var files = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Where(f => f.EndsWith(".NS") || f.EndsWith(".EW") || f.EndsWith(".UD") || f.EndsWith(".NS2") || f.EndsWith(".EW2") || f.EndsWith(".UD2")).ToArray();
-            if (files.Length == 0)
-            {
-                ConWrite("見つかりませんでした。");
-                return null;
-            }
-
-            return KNET_ASCII2Data(files);
         }
 
         /// <summary>
@@ -100,7 +123,16 @@ namespace KmoniReproducer
         /// <param name="calSpan">描画間隔</param>
         public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan)
         {
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 震度計算中...", ConsoleColor.Blue);
+            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff}   dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
+            var nowP = 0;
+            var total = (endTime - startTime) / calSpan;
+            var calStartT = DateTime.Now;
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
+            {
+                nowP++;//todo:残り時間の計算を前の10回とかに
+                var eta = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
+                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff}", ConsoleColor.Green, false);
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     var startIndex = Math.Max((int)((drawTime.AddMinutes(-1) + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
@@ -169,6 +201,9 @@ namespace KmoniReproducer
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
                 }
+
+            }
+            ConWrite($"\n{DateTime.Now:HH:MM:ss.ffff} 震度計算完了", ConsoleColor.Blue);
         }
 
         /// <summary>
