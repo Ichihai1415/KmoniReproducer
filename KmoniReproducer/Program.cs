@@ -2,6 +2,7 @@
 using MathNet.Numerics.IntegralTransforms;
 using System.IO.Compression;
 using System.Numerics;
+using static KmoniReproducer.Data;
 
 namespace KmoniReproducer
 {
@@ -67,7 +68,7 @@ namespace KmoniReproducer
             }
 
 
-            return new Data(files);
+            return KNET_ASCII2Data(files);
         }
 
         public static void Acc2JI(Data data)
@@ -87,7 +88,7 @@ namespace KmoniReproducer
                     //=>  00:00:05.25 <= data < 00:00:15.25  10.25sec (*max:60sec)
                     //dataCount=sec*freq=msec*freq/1000 (100Hz:max6000)
 
-                    var data23 = data.ObsDatas.Where(x => x.StationCode == data1.StationCode).ToArray();
+                    var data23 = data.ObsDatas.Where(x => x.StationName == data1.StationName).ToArray();
                     var data1Ac = data1.Accs.Skip(startIndex).Take(count).ToArray();
                     var data2Ac = data23[1].Accs.Skip(startIndex).Take(count).ToArray();
                     var data3Ac = data23[2].Accs.Skip(startIndex).Take(count).ToArray();
@@ -142,7 +143,7 @@ namespace KmoniReproducer
                     int index03 = (int)Math.Floor(0.3 * data1.SamplingFreq) - 1;
                     double ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
 
-                    ConWrite($"{data1.StationCode} {drawTime:HH:mm:ss.ff} : {ji}");
+                    ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}");
 
 
                     //return;
