@@ -22,6 +22,8 @@ namespace KmoniReproducer
             HypoLon = double.Parse(fileText1[2]);
             ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み中...");
             KNETdatas = fileNames.Select(x => new KNET_ASCII(x)).ToArray();
+            ObsDatas = KNETdatas.Select(x => new ObsData(x)).ToArray();
+
             ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み完了  データ数:{KNETdatas.Length} メモリ:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Blue);
         }
 
@@ -39,6 +41,59 @@ namespace KmoniReproducer
         /// 震源経度
         /// </summary>
         public double HypoLon { get; set; } = 0;
+
+
+        public ObsData[] ObsDatas { get; set; }
+
+        public class ObsData
+        {
+            public ObsData(KNET_ASCII kNET_ASCIIdata)
+            {
+                StationCode = kNET_ASCIIdata.StationCode;
+                StationLat = kNET_ASCIIdata.StationLat;
+                StationLon = kNET_ASCIIdata.StationLon;
+                RecordTime = kNET_ASCIIdata.RecordTime;
+                SamplingFreq = kNET_ASCIIdata.SamplingFreq;
+                DataDir = kNET_ASCIIdata.DataDir;
+                Accs = kNET_ASCIIdata.Accs;
+            }
+
+            /// <summary>
+            /// 観測点コード
+            /// </summary>
+            public string StationCode { get; set; }
+
+            /// <summary>
+            /// 観測点緯度
+            /// </summary>
+            public double StationLat { get; set; }
+
+            /// <summary>
+            /// 観測点経度
+            /// </summary>
+            public double StationLon { get; set; }
+
+            /// <summary>
+            /// 記録開始時刻
+            /// </summary>
+            public DateTime RecordTime { get; set; }
+
+            /// <summary>
+            /// サンプリング周波数
+            /// </summary>
+            public int SamplingFreq { get; set; }
+
+            /// <summary>
+            /// 観測チャンネル
+            /// </summary>
+            public string DataDir { get; set; }
+
+            /// <summary>
+            /// 観測データ
+            /// </summary>
+            public double[] Accs { get; set; }
+
+        }
 
         /// <summary>
         /// K-NET ASCIIフォーマットでのデータ
@@ -65,13 +120,14 @@ namespace KmoniReproducer
                 StationLon = double.Parse(fileText[7]);
                 RecordTime = DateTime.Parse(fileText[9]);
                 SamplingFreq = int.Parse(fileText[10].Replace("Hz", ""));
-                DataDir = fileText[12];
+                DataDir = fileText[12].Replace("4", "N-S").Replace("4", "E-W").Replace("6", "U-D");//kikは1~6
                 var scaleFs = fileText[13].Split("(gal)/").Select(double.Parse).ToArray();
                 ScaleFactor = scaleFs[0] / scaleFs[1];
 
                 var rawAccs = fileText.Skip(17).SelectMany(x => x.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Select(int.Parse).ToArray();
                 fileText = null;
-                Accs = CorrectAccs(rawAccs, ScaleFactor);
+                var ave = rawAccs.Average();
+                Accs = rawAccs.Select(rawAcc => (rawAcc - rawAccs.Average()) * ScaleFactor).ToArray();
                 rawAccs = null;
             }
 
@@ -124,17 +180,7 @@ namespace KmoniReproducer
             /// </summary>
             public double[] Accs { get; set; }
 
-            /// <summary>
-            /// 生の強震データをgalに変換します。
-            /// </summary>
-            /// <param name="rawAccs">生の強震データ</param>
-            /// <param name="scaleFacter">スケールファクタ</param>
-            /// <returns></returns>
-            public static double[] CorrectAccs(int[] rawAccs, double scaleFacter)
-            {
-                var ave = rawAccs.Average();
-                return rawAccs.Select(x => (x - ave) * scaleFacter).ToArray();
-            }
+
 
 
 
