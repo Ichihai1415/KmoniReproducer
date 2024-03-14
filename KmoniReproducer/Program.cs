@@ -3,33 +3,204 @@ using MathNet.Numerics.IntegralTransforms;
 using System.IO.Compression;
 using System.Numerics;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using static KmoniReproducer.Data;
 
 namespace KmoniReproducer
 {
     internal class Program
     {
+        /// <summary>
+        /// コンソールのデフォルトの色
+        /// </summary>
+        public static readonly ConsoleColor defaultColor = Console.ForegroundColor;
+
+        /// <summary>
+        /// AreaInformationPrefectureEarthquake_GIS_20190125_01
+        /// </summary>
+        public static JsonNode? map_pref_min;
+        /// <summary>
+        /// AreaInformationPrefectureEarthquake_GIS_20190125_1
+        /// </summary>
+        public static JsonNode? map_pref_mid;
+        /// <summary>
+        /// AreaForecastLocalE_GIS_20190125_01
+        /// </summary>
+        public static JsonNode? map_loca_min;
+        /// <summary>
+        /// AreaForecastLocalE_GIS_20190125_1
+        /// </summary>
+        public static JsonNode? map_loca_mid;
+        /// <summary>
+        /// AreaInformationCity_quake_GIS_20240229_01
+        /// </summary>
+        public static JsonNode? map_city_min;
+        /// <summary>
+        /// AreaInformationCity_quake_GIS_20240229_1
+        /// </summary>
+        public static JsonNode? map_city_mid;
+
+
         static void Main(string[] args)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var data2 = GetDataFromJMAcsv();
-            var drawData = new Data_Draw();
-            Acc2JI(data2, ref drawData);
+            var _oo = defaultColor;//最初に参照しないと最初変えた色が標準になる
+
+            if (!Directory.Exists("mapdata"))
+            {
+                ConWrite("地図の描画には地図データが必要です。(https://github.com/Ichihai1415/KmoniReproducer/releases/download/mapdata/mapdata.zip)");
+                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 地図データダウンロード中...", ConsoleColor.Blue);
+                if (File.Exists("mapdata.zip"))
+                    File.Delete("mapdata.zip");
+                using (var client = new HttpClient())
+                {
+                    var res = client.GetAsync("https://github.com/Ichihai1415/KmoniReproducer/releases/download/mapdata/mapdata.zip").Result;
+                    using var fileStream = new FileStream("mapdata.zip", FileMode.Create, FileAccess.Write, FileShare.None);
+                    res.Content.ReadAsStream().CopyTo(fileStream);
+                }
+                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 地図データをダウンロードしました。", ConsoleColor.Blue);
+                ZipFile.ExtractToDirectory("mapdata.zip", "mapdata");
+                Thread.Sleep(100);
+                File.Delete("mapdata.zip");
+
+            }
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 地図データ読み込み中...", ConsoleColor.Blue);
+            try
+            {
+                map_pref_min = JsonNode.Parse(File.ReadAllText("mapdata\\AreaInformationPrefectureEarthquake_GIS_20190125_01.geojson"));
+                map_pref_mid = JsonNode.Parse(File.ReadAllText("mapdata\\AreaInformationPrefectureEarthquake_GIS_20190125_1.geojson"));
+                map_loca_min = JsonNode.Parse(File.ReadAllText("mapdata\\AreaForecastLocalE_GIS_20190125_01.geojson"));
+                map_loca_mid = JsonNode.Parse(File.ReadAllText("mapdata\\AreaForecastLocalE_GIS_20190125_1.geojson"));
+                map_city_min = JsonNode.Parse(File.ReadAllText("mapdata\\AreaInformationCity_quake_GIS_20240229_01.geojson"));
+                map_city_mid = JsonNode.Parse(File.ReadAllText("mapdata\\AreaInformationCity_quake_GIS_20240229_1.geojson"));
+            }
+            catch (Exception ex)
+            {
+                ConWrite("[Main]地図データの読み込みに失敗しました。mapdataフォルダを削除して再起動してください。\n", ex);
+                return;
+            }
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
+
+            Data? data = null;
+            Data_Draw? data_Draw = null;
+            while (true)
+            {
+                var mode = ConAsk("モード(数字)を入力してください。\n" +
+                    "1.加速度データ読み込み(新規/追加)\n" +
+                    "2.震度計算\n" +
+                    "3.震度データ(独自形式)出力\n" +
+                    "4.震度データ(独自形式)読み込み\n" +
+                    "5.描画\n" +//mada
+                    "8.tarファイルの展開\n" +
+                    "9.データのクリア\n" +
+                    "0.終了");
+                switch (mode)
+                {
+                    case "1":
+                        var dataSrc1 = ConAsk("データの機関(数字)を入力してください。\n" +
+                            "1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
+                            "2.気象庁(.csv)");
+                        switch (dataSrc1)
+                        {
+                            case "1":
+                                if (data == null)
+                                    data = GetDataFromKNETASCII();
+                                else
+                                    data.AddObsDatas(GetDataFromKNETASCII());
+                                break;
+                            case "2":
+                                if (data == null)
+                                    data = GetDataFromJMAcsv();
+                                else
+                                    data.AddObsDatas(GetDataFromJMAcsv());
+                                break;
+                            default:
+                                ConWrite("値が不正です。", ConsoleColor.Red);
+                                break;
+                        }
+                        break;
+                    case "2":
+                        if (data == null)
+                        {
+                            ConWrite("先に加速度データを読み込んでください。", ConsoleColor.Red);
+                            break;
+                        }
+                        data_Draw = new Data_Draw(data);
+                        Acc2JI(data, ref data_Draw);
+                        break;
+                    case "3":
+                        if (data_Draw == null)
+                        {
+                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                            break;
+                        }
+                        if (data_Draw.Datas_Draw.Count == 0)
+                        {
+                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                            break;
+                        }
+                        var dir_out = $"output\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}";
+                        Directory.CreateDirectory(dir_out);
+                        File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
+                        foreach (var obsData in data_Draw.Datas_Draw)
+                            File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
+                        ConWrite($"{dir_out} に出力しました。");
+                        break;
+                    case "4":
+                        var dir_in = ConAsk("出力したフォルダを入力してください。").Replace("\"", "");
+                        ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み中...", ConsoleColor.Blue);
+                        var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
+                        var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
+#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
+#pragma warning disable CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
+                        data_Draw = new Data_Draw(DateTime.Parse(paramNode["OriginTime"].ToString()), double.Parse(paramNode["HypoLat"].ToString()), double.Parse(paramNode["HypoLon"].ToString()))
+                        {
+                            Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(x => x.StationName, y => y)
+                        };
+#pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
+#pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
+                        ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み完了", ConsoleColor.Blue);
+                        break;
+                    case "5":
+                        if (data_Draw == null)
+                        {
+                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                            break;
+                        }
+                        if (data_Draw.Datas_Draw.Count == 0)
+                        {
+                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                            break;
+                        }
+                        break;
+                    case "8":
+                        OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
+                        break;
+                    case "9":
+                        data = null;
+                        break;
+                    case "0":
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Environment.Exit(0);
+                        break;
+                }
+            }
+
+
+            //var data2 = GetDataFromJMAcsv();
+            //var drawData = new Data_Draw();
+            //Acc2JI(data2, ref drawData);
 
             /*
 
             var data = GetDataFromKNETASCII();
-            var data2 = GetDataFromJMAcsv();
-            data.AddObsDatas(data2);
+            // var data2 = GetDataFromJMAcsv();
+            //data.AddObsDatas(data2);
 
             var drawData = new Data_Draw();
             Acc2JI(data, ref drawData);
-
-
             */
-
-
-
 
             Console.WriteLine();
         }
@@ -64,7 +235,7 @@ namespace KmoniReproducer
         /// <returns>読み込んだデータ</returns>
         public static Data? GetDataFromJMAcsv()
         {
-            var dir = ConAsk("気象庁の強震データ(.csv)があるフォルダ名を入力してください。指定したフォルダのすべてのcsvファイル(level.csvを除く)を読み込みます。").Replace("\"", "");
+            var dir = ConAsk("気象庁の強震データ(.csv)があるフォルダ名を入力してください。指定したフォルダのすべてのcsvファイルを読み込みます。").Replace("\"", "");
             ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 取得中...", ConsoleColor.Blue);
             var files = Directory.EnumerateFiles(dir, "*.csv", SearchOption.AllDirectories).ToArray();
             if (files.Length == 0)
@@ -72,34 +243,64 @@ namespace KmoniReproducer
                 ConWrite("見つかりませんでした。", ConsoleColor.Red);
                 return null;
             }
-            return JMAcsv2Data(files.Where(x => !x.EndsWith("level.csv")).ToArray());
+            return JMAcsv2Data(files);//.Where(x => !x.EndsWith("level.csv")).ToArray()
+        }
+
+        /// <summary>
+        /// .tarファイルを展開します。
+        /// </summary>
+        /// <param name="file">tarファイルのパス</param>
+        public static void OpenTar(string file)
+        {
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開中...", ConsoleColor.Blue);
+            var dir = file.Replace(".tar", "");
+            using (var fStream = File.OpenRead(file))
+            using (var tarArchive = TarArchive.CreateInputTarArchive(fStream, Encoding.ASCII))
+                tarArchive.ExtractContents(dir);
+            Thread.Sleep(100);//待たないと使用中例外
+            File.Delete(file);
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開完了", ConsoleColor.Blue);
+            var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
+            if (targzFiles.Length != 0)
+            {
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
+                if (ok)
+                    OpenTarGz(dir);
+            }
         }
 
         /// <summary>
         /// .tar.gzファイルを展開します。
         /// </summary>
         /// <remarks>展開後元のファイルは削除されます。展開後に.tar.gzファイルがある場合再実行します。</remarks>
-        /// <param name="dir">ファイルがあるディレクトリ</param>
+        /// <param name="file">ファイルがあるディレクトリ</param>
         public static void OpenTarGz(string dir)
         {
-            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開中...", ConsoleColor.Blue);
-            while (true)
+            var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories);
+            if (!targzFiles.Any())
             {
-                var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories);
-                if (targzFiles.Any())
-                    return;
+                ConWrite("見つかりませんでした。", ConsoleColor.Red);
+                return;
+            }
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開中...", ConsoleColor.Blue);
+            while (targzFiles.Any())
+            {
                 foreach (var targzFile in targzFiles)
                 {
                     ConWrite(targzFile, ConsoleColor.Green);
-                    using var tgzStream = File.OpenRead(targzFile);
-                    using var gzStream = new GZipStream(tgzStream, CompressionMode.Decompress);
+                    using var fStream = File.OpenRead(targzFile);
+                    using var gzStream = new GZipStream(fStream, CompressionMode.Decompress);
                     using var tarArchive = TarArchive.CreateInputTarArchive(gzStream, Encoding.ASCII);
                     tarArchive.ExtractContents(targzFile.Replace(".tar.gz", ""));
                 }
                 Thread.Sleep(100);//待たないと使用中例外
+                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 削除中...", ConsoleColor.Blue);
                 foreach (var targzFile in targzFiles)
                     File.Delete(targzFile);
+                Thread.Sleep(100);
+                targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories);
             }
+            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 展開完了", ConsoleColor.Blue);
         }
 
         /// <summary>
@@ -123,16 +324,27 @@ namespace KmoniReproducer
         /// <param name="calSpan">描画間隔</param>
         public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan)
         {
+            if (data.ObsDatas == null)
+            {
+                ConWrite("加速度データが存在しません。", ConsoleColor.Red);
+                return;
+            }
+
             ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 震度計算中...", ConsoleColor.Blue);
             ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff}   dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
             var calStartT = DateTime.Now;
+            var calStartT2 = DateTime.Now;
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
             {
-                nowP++;//todo:残り時間の計算を前の10回とかに
-                var eta = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
-                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff}", ConsoleColor.Green, false);
+                nowP++;
+                var eta1 = (DateTime.Now - calStartT2) * (total - nowP);
+                var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
+                if (eta1 > eta2)
+                    (eta1, eta2) = (eta2, eta1);
+                calStartT2 = DateTime.Now;
+                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff}", ConsoleColor.Green, false);
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     var startIndex = Math.Max((int)((drawTime.AddMinutes(-1) + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
@@ -239,11 +451,6 @@ namespace KmoniReproducer
             else
                 return ans;
         }
-
-        /// <summary>
-        /// コンソールのデフォルトの色
-        /// </summary>
-        public static readonly ConsoleColor defaultColor = Console.ForegroundColor;
 
         /// <summary>
         /// コンソールにデフォルトの色で出力します。
