@@ -1,21 +1,22 @@
 ﻿using ICSharpCode.SharpZipLib.Tar;
+using KmoniReproducer.Properties;
 using MathNet.Numerics.IntegralTransforms;
+using System.Drawing;
+using System.Drawing.Text;
 using System.IO.Compression;
 using System.Numerics;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using static KmoniReproducer.Data;
+using static KmoniReproducer.DrawImg;
 
 namespace KmoniReproducer
 {
+    [SupportedOSPlatform("windows")]
     internal class Program
     {
-        /// <summary>
-        /// コンソールのデフォルトの色
-        /// </summary>
-        public static readonly ConsoleColor defaultColor = Console.ForegroundColor;
-
         /// <summary>
         /// AreaInformationPrefectureEarthquake_GIS_20190125_01
         /// </summary>
@@ -41,11 +42,26 @@ namespace KmoniReproducer
         /// </summary>
         public static JsonNode? map_city_mid;
 
+        /// <summary>
+        /// 描画用フォント
+        /// </summary>
+        public static FontFamily? font;
+
+        public static Config_Color config_color = new();
+        public static Config_Map config_map = new();
+        public static Config_Draw config_draw = new();
 
         static void Main(string[] args)
         {
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var _oo = defaultColor;//最初に参照しないと最初変えた色が標準になる
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);//Encoding.GetEncoding("Shift-JIS")に必要
+            if (!File.Exists("Koruri-Regular.ttf"))
+                File.WriteAllBytes("Koruri-Regular.ttf", Resources.Koruri_Regular);
+            if (!File.Exists("Koruri-LICENSE"))
+                File.WriteAllBytes("Koruri-LICENSE", Resources.Koruri_LICENSE);
+            PrivateFontCollection pfc = new();
+            pfc.AddFontFile("Koruri-Regular.ttf");
+            font = pfc.Families[0];
+
 
             if (!Directory.Exists("mapdata"))
             {
@@ -87,20 +103,20 @@ namespace KmoniReproducer
             while (true)
             {
                 var mode = ConAsk("モード(数字)を入力してください。\n" +
-                    "1.加速度データ読み込み(新規/追加)\n" +
-                    "2.震度計算\n" +
-                    "3.震度データ(独自形式)出力\n" +
-                    "4.震度データ(独自形式)読み込み\n" +
-                    "5.描画\n" +//mada
-                    "8.tarファイルの展開\n" +
-                    "9.データのクリア\n" +
-                    "0.終了");
+                    "> 1.加速度データ読み込み(新規/追加)\n" +
+                    "> 2.震度計算\n" +
+                    "> 3.震度データ(独自形式)出力\n" +
+                    "> 4.震度データ(独自形式)読み込み\n" +
+                    "> 5.描画\n" +
+                    "> 8.tarファイルの展開\n" +
+                    "> 9.データのクリア\n" +
+                    "> 0.終了");
                 switch (mode)
                 {
                     case "1":
                         var dataSrc1 = ConAsk("データの機関(数字)を入力してください。\n" +
-                            "1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
-                            "2.気象庁(.csv)");
+                            "> 1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
+                            "> 2.気象庁(.csv)");
                         switch (dataSrc1)
                         {
                             case "1":
@@ -142,7 +158,8 @@ namespace KmoniReproducer
                         }
                         var dir_out = $"output\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}";
                         Directory.CreateDirectory(dir_out);
-                        File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
+                        //File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
+                        File.WriteAllText($"{dir_out}\\_param.json", JsonSerializer.Serialize(data_Draw));
                         foreach (var obsData in data_Draw.Datas_Draw)
                             File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
                         ConWrite($"{dir_out} に出力しました。");
@@ -173,6 +190,7 @@ namespace KmoniReproducer
                             ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                             break;
                         }
+                        Draw();
                         break;
                     case "8":
                         OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -215,7 +233,7 @@ namespace KmoniReproducer
             var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
             if (targzFiles.Length != 0)
             {
-                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true) == "y";
                 if (ok)
                     OpenTarGz(dir);
             }
@@ -263,7 +281,7 @@ namespace KmoniReproducer
             var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
             if (targzFiles.Length != 0)
             {
-                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)") == "y";
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true) == "y";
                 if (ok)
                     OpenTarGz(dir);
             }
@@ -304,25 +322,26 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// 加速度から震度を求めます。<c>Data</c>内部に保存されます。
+        /// 加速度から震度を求めます。<paramref name="data"/>内部に保存されます。
         /// </summary>
         /// <remarks>開始時刻:発生時刻　終了時刻:発生時刻+3分　描画間隔:1秒</remarks>
         /// <param name="data">加速度データ</param>
         /// <param name="drawData">描画用データ(ref)</param>
         public static void Acc2JI(Data data, ref Data_Draw drawData)
         {
-            Acc2JI(data, ref drawData, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1));
+            Acc2JI(data, ref drawData, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
         }
 
         /// <summary>
-        /// 加速度から震度を求めます。<c>Data</c>内部に保存されます。
+        /// 加速度から震度を求めます。<paramref name="data"/>内部に保存されます。
         /// </summary>
         /// <param name="data">加速度データ</param>
         /// <param name="drawData">描画用データ(ref)</param>
         /// <param name="startTime">開始時刻</param>
         /// <param name="endTime">終了時刻</param>
-        /// <param name="calSpan">描画間隔</param>
-        public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan)
+        /// <param name="calSpan">計算間隔</param>
+        /// <param name="calPeriod">計算時間(通常1分)</param>
+        public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan, TimeSpan calPeriod)
         {
             if (data.ObsDatas == null)
             {
@@ -347,7 +366,7 @@ namespace KmoniReproducer
                 ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff}", ConsoleColor.Green, false);
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
-                    var startIndex = Math.Max((int)((drawTime.AddMinutes(-1) + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
+                    var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
                     var endIndex = (int)((drawTime + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
                     var count = endIndex - startIndex + 1;
                     //st 00:00:05  span 0.25  draw 00:00:15
@@ -435,7 +454,7 @@ namespace KmoniReproducer
         /// </summary>
         /// <param name="message">表示するメッセージ</param>
         /// <param name="allowNull">空文字入力を許容するか</param>
-        /// <returns></returns>
+        /// <returns>入力された文字列</returns>
         public static string ConAsk(string message, bool allowNull = false)
         {
             ConWrite(message);
@@ -453,6 +472,19 @@ namespace KmoniReproducer
         }
 
         /// <summary>
+        /// コンソールのデフォルトの色
+        /// </summary>
+        public static readonly ConsoleColor defaultColor = Console.ForegroundColor;
+
+        /// <summary>
+        /// コンソールの色を既定色に変えます。
+        /// </summary>
+        public static void ConWrite()
+        {
+            Console.ForegroundColor = defaultColor;
+        }
+
+        /// <summary>
         /// コンソールにデフォルトの色で出力します。
         /// </summary>
         /// <param name="text">出力するテキスト</param>
@@ -467,7 +499,7 @@ namespace KmoniReproducer
         /// </summary>
         /// <param name="loc">場所([ConWrite]など)</param>
         /// <param name="ex">出力する例外</param>
-        public static void ConWrite(string loc, Exception ex)
+        public static void ConWrite(string? loc, Exception ex)
         {
             ConWrite(loc + ex.ToString(), ConsoleColor.Red);
         }
@@ -480,8 +512,9 @@ namespace KmoniReproducer
         /// <param name="withLine">改行するか</param>
         public static void ConWrite(string text, ConsoleColor color, bool withLine = true)
         {
+            _ = defaultColor;//最初に色指定するとその色が既定色になるため
             Console.ForegroundColor = color;
-            //Console.Write(DateTime.Now.ToString("HH:mm:ss.ffff "));
+            //Console.Write(DateTime.Now.ToString("HH:mm:ss.ffff "));//タイムスタンプが不要な場合コメントアウト(使うときは`$"{DateTime.Now:HH:MM:ss.ffff} "`)
             if (withLine)
                 Console.WriteLine(text);
             else

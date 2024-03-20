@@ -1,5 +1,7 @@
 ﻿using System.Data;
+using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
 
 namespace KmoniReproducer
@@ -7,6 +9,7 @@ namespace KmoniReproducer
     /// <summary>
     /// 一地震での加速度データと地震データ
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class Data
     {
         /// <summary>
@@ -272,6 +275,7 @@ namespace KmoniReproducer
     /// <summary>
     /// 描画用データ
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class Data_Draw
     {
         /// <summary>
@@ -292,7 +296,7 @@ namespace KmoniReproducer
         /// <param name="originTime">発生時刻</param>
         /// <param name="hypoLat">震源緯度</param>
         /// <param name="hypoLon">震源経度</param>
-        public Data_Draw(DateTime originTime,double hypoLat,double hypoLon)
+        public Data_Draw(DateTime originTime, double hypoLat, double hypoLon)
         {
             OriginTime = originTime;
             HypoLat = hypoLat;
@@ -372,6 +376,7 @@ namespace KmoniReproducer
             /// <summary>
             /// 時刻ごとの震度
             /// </summary>
+            [JsonIgnore]
             public Dictionary<DateTime, double> TimeInt { get; set; } = [];
         }
     }
