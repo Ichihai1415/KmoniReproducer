@@ -377,8 +377,8 @@ namespace KmoniReproducer
                 calStartT2 = DateTime.Now;
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
-                    var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
-                    var endIndex = (int)((drawTime + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
+                    var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
+                    var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
                     var count = endIndex - startIndex + 1;
                     //st 00:00:05  span 0.25  draw 00:00:15
                     //=>  00:00:05.25 <= data < 00:00:15.25  10.25sec (*max:60sec)
