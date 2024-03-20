@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Runtime.Versioning;
 using System.Text.Json.Nodes;
 using static KmoniReproducer.Program;
@@ -11,27 +12,78 @@ namespace KmoniReproducer
     {
         public static void Draw(Data_Draw drawDatas)
         {
+            var saveDir = $"output";
+            Directory.CreateDirectory(saveDir);
             var basemap = Draw_Map();
 
-            for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
+            var obsSize = config_draw.ObsSize * (config_map.MapSize / 1080);
+            var obsSizeHalf = obsSize / 2;
+            var zoomW = config_map.MapSize / (config_map.LonEnd - config_map.LonSta);
+            var zoomH = config_map.MapSize / (config_map.LatEnd - config_map.LatSta);
+
+#if DEBUG
+            var img = new Bitmap(basemap);
+            var g = Graphics.FromImage(img);
+            var textColor = new SolidBrush(config_color.Text);
+            var drawTime = new DateTime(2024, 01, 01, 16, 12, 00);
+            foreach (var drawData in drawDatas.Datas_Draw.Values)
+            {
+                var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
+                var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
+                var text = drawData.StationName;
+                /*if (!text.Contains('H'))
+                    continue;*/
+                if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
+                {
+                    g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
+                    text += string.Format(" {0:F1}", shindo);
+                }
+                g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
+                g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
+            }
+            g.FillRectangle(new SolidBrush(config_color.InfoBack), config_map.MapSize, 0, img.Width - config_map.MapSize, config_map.MapSize);
+            g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, config_map.MapSize / 24, GraphicsUnit.Pixel), Brushes.White, 0, 0);
+            var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
+            g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), textColor, config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
+            var savePath = $"{saveDir}\\{DateTime.Now:yyyyMMddHHmmss}.png";
+            img.Save(savePath, ImageFormat.Png);
+            g.Dispose();
+            img.Dispose();
+#else
+            
+
+            var drawTime = config_draw.StartTime;
+            for (int i = 0; drawTime < config_draw.EndTime; i++)
             {
                 var img = new Bitmap(basemap);
                 var g = Graphics.FromImage(img);
-                foreach (var drawData in drawDatas.Datas_Draw)
+                var textColor = new SolidBrush(config_color.Text);
+                foreach (var drawData in drawDatas.Datas_Draw.Values)
                 {
-
-
-
-
+                    var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
+                    var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
+                    var text = drawData.StationName;
+                    if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
+                    {
+                        g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
+                        text += string.Format(" {0:F1}", shindo);
+                    }
+                    g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
+                    g.DrawString(text, new Font(font, obsSize, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
                 }
-
-
-
-
-
+                g.FillRectangle(new SolidBrush(config_color.InfoBack), config_map.MapSize, 0, img.Width - config_map.MapSize, config_map.MapSize);
+                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, config_map.MapSize / 24, GraphicsUnit.Pixel), Brushes.White, 0, 0);
+                g.DrawLine(new Pen(Color.White, config_map.MapSize / 1080f), config_map.MapSize, config_map.MapSize * 36 / 1080, img.Width, config_map.MapSize * 36 / 1080);
+                var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
+                g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), textColor, config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
+                var savePath = $"{saveDir}\\{i:d4}.png";
+                img.Save(savePath, ImageFormat.Png);
+                g.Dispose();
+                img.Dispose();
+                drawTime += config_draw.DrawSpan;
             }
 
-
+#endif
         }
 
 
@@ -53,6 +105,8 @@ namespace KmoniReproducer
             gPath.StartFigure();
             foreach (var mapjson_feature in mapjson["features"].AsArray())
             {
+                if (mapjson_feature["geometry"] == null)
+                    continue;
                 if ((string?)mapjson_feature["geometry"]["type"] == "Polygon")
                 {
                     var points = mapjson_feature["geometry"]["coordinates"][0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
@@ -89,8 +143,8 @@ namespace KmoniReproducer
         {
             return config_map.MapType switch
             {
-                Config_Map.MapKind.map_pref_min => map_city_min,
-                Config_Map.MapKind.map_pref_mid => map_city_mid,
+                Config_Map.MapKind.map_pref_min => map_pref_min,
+                Config_Map.MapKind.map_pref_mid => map_pref_mid,
                 Config_Map.MapKind.map_loca_min => map_loca_min,
                 Config_Map.MapKind.map_loca_mid => map_loca_mid,
                 Config_Map.MapKind.map_city_min => map_city_min,
@@ -100,14 +154,67 @@ namespace KmoniReproducer
         }
 #pragma warning restore CS8603 // Null 参照戻り値である可能性があります。
 
+        /// <summary>
+        /// 震度から描画色を求めます。
+        /// </summary>
+        /// <param name="shindo">震度</param>
+        /// <returns>震度に対応する色</returns>
+        public static Color Shindo2Color(double? shindo)
+        {
+            shindo ??= double.NaN;
+            if (config_color.Obs_UseIntColor)
+            {
+                if (shindo < 0.5)
+                    return config_color.IntColor.S0;
+                else if (shindo < 1.5)
+                    return config_color.IntColor.S1;
+                else if (shindo < 2.5)
+                    return config_color.IntColor.S2;
+                else if (shindo < 3.5)
+                    return config_color.IntColor.S3;
+                else if (shindo < 4.5)
+                    return config_color.IntColor.S4;
+                else if (shindo < 5.0)
+                    return config_color.IntColor.S5;
+                else if (shindo < 5.5)
+                    return config_color.IntColor.S6;
+                else if (shindo < 6.0)
+                    return config_color.IntColor.S7;
+                else if (shindo < 6.5)
+                    return config_color.IntColor.S8;
+                else if (shindo >= 6.5)
+                    return config_color.IntColor.S9;
+                else
+                    return Shindo2KColor[double.NaN];
+            }
+            else
+            {
+                if (shindo > 7d)
+                    shindo = 7d;
+                if (shindo < -3d)
+                    shindo = -3d;
+                return Shindo2KColor[shindo ?? double.NaN];
+            }
+        }
 
         /// <summary>
-        /// 震度から強震モニタ震度色に変換します。-3.0以下は-3.0,7.0以上は7.0,データなしの場合-5.0を指定してください。
+        /// 震度から描画色を求めます。
+        /// </summary>
+        /// <param name="shindo">震度</param>
+        /// <returns>震度に対応する色</returns>
+        public static SolidBrush Shindo2ColorBrush(double? shindo)
+        {
+            return new SolidBrush(Shindo2Color(shindo));
+        }
+
+        /// <summary>
+        /// 震度から強震モニタ震度色に変換します。-3.0以下は-3.0,7.0以上は7.0,データなしの場合<c>double.NaN</c>を指定してください。
         /// </summary>
         /// <remarks>データ:https://github.com/ingen084/KyoshinShindoColorMap</remarks>
-        public readonly static Dictionary<double, Color> Sindo2Color = new()
+        #region Shindo2KColor
+        public readonly static Dictionary<double, Color> Shindo2KColor = new()
         {
-            { -5.0, Color.FromArgb(0, 0, 0, 0)   },
+            { double.NaN, Color.FromArgb(0, 0, 0, 0)},
             { -3.0, Color.FromArgb(0, 0, 205)    },
             { -2.9, Color.FromArgb(0, 7, 209)    },
             { -2.8, Color.FromArgb(0, 14, 214)   },
@@ -210,6 +317,7 @@ namespace KmoniReproducer
             {  6.9, Color.FromArgb(177, 0, 0)    },
             {  7.0, Color.FromArgb(170, 0, 0)    }
         };
+        #endregion
     }
 
 
@@ -231,6 +339,10 @@ namespace KmoniReproducer
         /// </summary>
         public TimeSpan DrawSpan { get; set; }
 
+        /// <summary>
+        /// 画像の高さ1080での観測点のサイズ
+        /// </summary>
+        public int ObsSize { get; set; } = 6;
     }
 
     /// <summary>
@@ -364,17 +476,17 @@ namespace KmoniReproducer
         /// <summary>
         /// 観測点の円(塗りつぶさないほう)の色
         /// </summary>
-        public Color Obs_Border { get; set; } = Color.FromArgb(127, 127, 127);
+        public Color Obs_Border { get; set; } = Color.FromArgb(0, 127, 127, 127);
 
         /// <summary>
         /// 震度別色
         /// </summary>
-        public SindoColor IntColor { get; set; } = new();
+        public ShindoColor IntColor { get; set; } = new();
 
         /// <summary>
         /// 震度別色
         /// </summary>
-        public class SindoColor
+        public class ShindoColor
         {
             /// <summary>
             /// 震度0

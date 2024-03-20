@@ -45,7 +45,9 @@ namespace KmoniReproducer
         /// <summary>
         /// 描画用フォント
         /// </summary>
-        public static FontFamily? font;
+#pragma warning disable CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
+        public static FontFamily font;
+#pragma warning restore CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
 
         public static Config_Color config_color = new();
         public static Config_Map config_map = new();
@@ -158,8 +160,7 @@ namespace KmoniReproducer
                         }
                         var dir_out = $"output\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}";
                         Directory.CreateDirectory(dir_out);
-                        //File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
-                        File.WriteAllText($"{dir_out}\\_param.json", JsonSerializer.Serialize(data_Draw));
+                        File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
                         foreach (var obsData in data_Draw.Datas_Draw)
                             File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
                         ConWrite($"{dir_out} に出力しました。");
@@ -190,7 +191,17 @@ namespace KmoniReproducer
                             ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                             break;
                         }
-                        Draw();
+                        config_draw = new Config_Draw
+                        {
+                            StartTime = new DateTime(2024, 01, 01, 16, 10, 0),
+                            EndTime = new DateTime(2024, 01, 01, 16, 13, 0),
+                            DrawSpan = new TimeSpan(0, 0, 1),
+                            ObsSize=6
+                        };
+                        config_map.MapSize = 1080 * 4;
+                        config_color.Obs_UseIntColor = true;
+
+                        Draw(data_Draw);
                         break;
                     case "8":
                         OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -362,8 +373,8 @@ namespace KmoniReproducer
                 var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
+                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...", ConsoleColor.Green, false);
                 calStartT2 = DateTime.Now;
-                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff}", ConsoleColor.Green, false);
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - startTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);

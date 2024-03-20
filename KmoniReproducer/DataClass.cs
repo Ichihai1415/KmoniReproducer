@@ -376,7 +376,6 @@ namespace KmoniReproducer
             /// <summary>
             /// 時刻ごとの震度
             /// </summary>
-            [JsonIgnore]
             public Dictionary<DateTime, double> TimeInt { get; set; } = [];
         }
     }
