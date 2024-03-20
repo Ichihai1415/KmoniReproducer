@@ -159,6 +159,8 @@ namespace KmoniReproducer
                             break;
                         }
                         var dir_out = $"output\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}";
+                        if (data_Draw.CalPeriod != TimeSpan.Zero)
+                            dir_out += $"-{data_Draw.CalPeriod.TotalSeconds}s";
                         Directory.CreateDirectory(dir_out);
                         File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
                         foreach (var obsData in data_Draw.Datas_Draw)
@@ -196,10 +198,10 @@ namespace KmoniReproducer
                             StartTime = new DateTime(2024, 01, 01, 16, 10, 0),
                             EndTime = new DateTime(2024, 01, 01, 16, 13, 0),
                             DrawSpan = new TimeSpan(0, 0, 1),
-                            ObsSize=6
+                            ObsSize = 6
                         };
-                        config_map.MapSize = 1080 * 4;
-                        config_color.Obs_UseIntColor = true;
+                        config_map.MapSize = 1080;
+                        //config_color.Obs_UseIntColor = true;
 
                         Draw(data_Draw);
                         break;
@@ -362,8 +364,10 @@ namespace KmoniReproducer
 
             ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 震度計算中...", ConsoleColor.Blue);
             ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff}   dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
+            drawData.CalPeriod = calPeriod;
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
+            var total2 = data.ObsDatas.Length / 3;
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
@@ -373,10 +377,15 @@ namespace KmoniReproducer
                 var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
-                ConWrite($"\r{DateTime.Now:HH:MM:ss.ffff}  now:{drawTime:HH:mm:ss.ff}  {nowP}/{total} ({nowP / total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...", ConsoleColor.Green, false);
+                var text1 = $"\r now:{drawTime:HH:mm:ss.ff}  count_time:{nowP}/{total} ({nowP / total * 100:F2}％)";
+                var text2 = $"  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last time cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...";
                 calStartT2 = DateTime.Now;
+                var nowP2 = 0;
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
+                    nowP2++;
+                    ConWrite(text1 + $"-count_data:{nowP2}/{total2} ({nowP2 / total2 * 100:F2}％)" + text2, ConsoleColor.Green, false);
+
                     var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
                     var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
                     var count = endIndex - startIndex + 1;
@@ -470,6 +479,7 @@ namespace KmoniReproducer
         {
             ConWrite(message);
         retry:
+            Console.ForegroundColor = ConsoleColor.Yellow;
             var ans = Console.ReadLine();
             if (allowNull)
                 return ans ?? "";

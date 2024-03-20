@@ -25,18 +25,17 @@ namespace KmoniReproducer
             var img = new Bitmap(basemap);
             var g = Graphics.FromImage(img);
             var textColor = new SolidBrush(config_color.Text);
-            var drawTime = new DateTime(2024, 01, 01, 16, 12, 00);
+            var drawTime = new DateTime(2024, 01, 01, 16, 11, 30);
             foreach (var drawData in drawDatas.Datas_Draw.Values)
             {
                 var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                 var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
-                var text = drawData.StationName;
-                /*if (!text.Contains('H'))
-                    continue;*/
+                var text = config_draw.DrawObsName ? drawData.StationName + " " : "";
                 if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
                 {
                     g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
-                    text += string.Format(" {0:F1}", shindo);
+                    if (config_draw.DrawObsShindo)
+                        text += string.Format("{0:F1}", shindo);
                 }
                 g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
                 g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
@@ -50,7 +49,7 @@ namespace KmoniReproducer
             g.Dispose();
             img.Dispose();
 #else
-            
+
 
             var drawTime = config_draw.StartTime;
             for (int i = 0; drawTime < config_draw.EndTime; i++)
@@ -62,14 +61,15 @@ namespace KmoniReproducer
                 {
                     var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                     var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
-                    var text = drawData.StationName;
+                    var text = config_draw.DrawObsName ? drawData.StationName + " " : "";
                     if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
                     {
                         g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
-                        text += string.Format(" {0:F1}", shindo);
+                        if (config_draw.DrawObsShindo)
+                            text += string.Format("{0:F1}", shindo);
                     }
                     g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
-                    g.DrawString(text, new Font(font, obsSize, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
+                    g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
                 }
                 g.FillRectangle(new SolidBrush(config_color.InfoBack), config_map.MapSize, 0, img.Width - config_map.MapSize, config_map.MapSize);
                 g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, config_map.MapSize / 24, GraphicsUnit.Pixel), Brushes.White, 0, 0);
@@ -343,6 +343,16 @@ namespace KmoniReproducer
         /// 画像の高さ1080での観測点のサイズ
         /// </summary>
         public int ObsSize { get; set; } = 6;
+
+        /// <summary>
+        /// 観測点名を観測点アイコン右に描画するか
+        /// </summary>
+        public bool DrawObsName { get; set; } = false;
+
+        /// <summary>
+        /// 観測点震度を観測点アイコン右に描画するか
+        /// </summary>
+        public bool DrawObsShindo { get; set; } = false;
     }
 
     /// <summary>

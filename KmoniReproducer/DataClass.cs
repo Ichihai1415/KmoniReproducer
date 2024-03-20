@@ -1,7 +1,6 @@
 ﻿using System.Data;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
 
 namespace KmoniReproducer
@@ -167,6 +166,7 @@ namespace KmoniReproducer
                 }
                 catch (Exception ex)
                 {
+                    ConWrite($"読み込み失敗:{fileName}", ConsoleColor.Red);
 #if DEBUG
                     ConWrite("[KNET_ASCII2ObsData]", ex);
 #endif
@@ -228,6 +228,10 @@ namespace KmoniReproducer
                 }
                 catch (Exception ex)
                 {
+                    if (fileName.EndsWith("level.csv"))
+                        ConWrite($"無視:{fileName}", ConsoleColor.Green);
+                    else
+                        ConWrite($"読み込み失敗:{fileName}", ConsoleColor.Red);
 #if DEBUG
                     ConWrite("[JMAcsv2ObsData]", ex);
 #endif
@@ -330,6 +334,11 @@ namespace KmoniReproducer
         /// 震源経度
         /// </summary>
         public double HypoLon { get; set; }
+
+        /// <summary>
+        /// 震度計算時間(通常1分)
+        /// </summary>
+        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;
 
         /// <summary>
         /// 観測点のデータのリスト
