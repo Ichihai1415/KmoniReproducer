@@ -20,7 +20,7 @@ namespace KmoniReproducer
         {
             try
             {
-                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み中...", ConsoleColor.Blue);
+                ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
                 string fileName1 = fileNames[0];
                 var fileText1 = File.ReadAllLines(fileName1);
                 for (var i = 0; i < 15; i++)
@@ -35,7 +35,7 @@ namespace KmoniReproducer
                     ObsDatas = fileNames.Select(ObsData.KNET_ASCII2ObsData).Where(x => x != null).ToArray()
                 };
 #pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
-                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み完了", ConsoleColor.Blue);
+                ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                 ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
                 return data;
             }
@@ -57,7 +57,7 @@ namespace KmoniReproducer
         {
             try
             {
-                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み中...", ConsoleColor.Blue);
+                ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
                 var fileTexts = File.ReadAllLines(fileNames[0], Encoding.GetEncoding("Shift-JIS")).ToArray();
                 var initTimeInts = fileTexts[5].Split(',')[0].Split('=')[1].Replace("   ", " 19").Split(' ').Skip(1).Select(int.Parse).ToArray();//1900年代は  xx表記になってる
 #pragma warning disable CS8603 // Null 参照戻り値である可能性があります。
@@ -67,7 +67,7 @@ namespace KmoniReproducer
                     ObsDatas = fileNames.Select(ObsData.JMAcsv2ObsData).Where(x => x != null).SelectMany(x => x).ToArray()
                 };
 #pragma warning restore CS8603 // Null 参照戻り値である可能性があります。
-                ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 読み込み完了", ConsoleColor.Blue);
+                ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                 ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
                 return data;
             }
@@ -107,7 +107,7 @@ namespace KmoniReproducer
             var obsDataList = ObsDatas.ToList();
             obsDataList.AddRange(obsDatas);
             ObsDatas = [.. obsDataList];
-            ConWrite($"{DateTime.Now:HH:MM:ss.ffff} 追加完了", ConsoleColor.Blue);
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 追加完了", ConsoleColor.Blue);
             ConWrite($"dataCount:{ObsDatas.Length}(points:{ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
         }
 
