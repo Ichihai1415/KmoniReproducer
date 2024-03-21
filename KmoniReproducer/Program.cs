@@ -239,7 +239,7 @@ namespace KmoniReproducer
                                 File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color/*, serializeIntend*/));
                             _ = ConAsk("色をconfig-color.jsonで設定してください。エンターキーを押すと描画を開始します。", true);
                             config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();
-                            
+
                             Draw(data_Draw);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
                                 "1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
@@ -447,7 +447,7 @@ namespace KmoniReproducer
                     var data1Ac = data1.Accs.Skip(startIndex).Take(count).ToArray();
                     var data2Ac = data23[1].Accs.Skip(startIndex).Take(count).ToArray();
                     var data3Ac = data23[2].Accs.Skip(startIndex).Take(count).ToArray();
-                    if (data1Ac.Length == 0)
+                    if (data1Ac.Length < 0.3 * data1.SamplingFreq)
                         continue;
                     //File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
                     data1Ac = data1Ac.Select(rawAcc => rawAcc - data1Ac.Average()).ToArray();
@@ -496,8 +496,8 @@ namespace KmoniReproducer
                     Array.Reverse(dataAcCR);
                     //File.WriteAllText("dataAcCR-sort.txt", string.Join('\n', dataAcCR));
                     var index03 = (int)Math.Floor(0.3 * data1.SamplingFreq) - 1;
-                    var ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
 
+                    var ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
                     drawData.AddInt(data1, drawTime, ji);
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
