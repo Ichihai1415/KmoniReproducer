@@ -105,6 +105,8 @@ namespace KmoniReproducer
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
 
+            ConWrite("【お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
+                "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。");
             Data? data = null;
             Data_Draw? data_Draw = null;
             while (true)
@@ -152,11 +154,12 @@ namespace KmoniReproducer
                             }
                             data_Draw = new Data_Draw(data);
 
+                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00"));
                             Acc2JI(data, ref data_Draw,
-                                DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00")),
-                                DateTime.Parse(ConAsk($"計算終了日時(この時間未満まで計算)を入力してください。例:2024/01/01 00:03:00")),
-                                TimeSpan.Parse(ConAsk($"計算間隔を入力してください。例1:00:00:01 例2:00:00:00.5")),
-                                TimeSpan.Parse(ConAsk($"計算秒数を入力してください。基本は1分です。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:00:01:00")));
+                                startT2,
+                                startT2.AddSeconds(double.Parse(ConAsk($"計算開始日時から終了までの時間(秒)を入力してください。例:300"))),
+                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算間隔(秒、小数可)を入力してください。例1:1 例2:0.5"))),
+                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算秒数(秒、小数可)を入力してください。基本は1分です。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:60"))));
                             break;
                         case "3":
                             if (data_Draw == null)
@@ -220,11 +223,12 @@ namespace KmoniReproducer
                                 "> 31.市町村等（地震津波関係）(軽量)\n" +
                                 "> 32.市町村等（地震津波関係）(詳細)"))
                             };
+                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {data_Draw.OriginTime} となっています。例:2024/01/01 00:00:00"));
                             config_draw = new Config_Draw
                             {
-                                StartTime = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {data_Draw.OriginTime} となっています。例:2024/01/01 00:00:00")),
-                                EndTime = DateTime.Parse(ConAsk($"描画終了日時(この時間未満まで描画)を入力してください。例:2024/01/01 00:03:00")),
-                                DrawSpan = TimeSpan.Parse(ConAsk($"描画間隔を入力してください。震度計算では {calSpan} のようです。例:00:00:01 例2:00:00:00.5")),
+                                StartTime = startT5,
+                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。例:300"))),
+                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。例1:1 例2:0.5"))),
                                 ObsSize = int.Parse(ConAsk("観測点サイズを入力してください。例:7")),
                                 DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y",
                                 DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y"
