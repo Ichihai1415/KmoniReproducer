@@ -65,9 +65,10 @@ namespace KmoniReproducer
             PrivateFontCollection pfc = new();
             pfc.AddFontFile("Koruri-Regular.ttf");
             font = pfc.Families[0];
+            serializeIntend.Converters.Add(new ColorConverter());
 
             if (File.Exists("config-color.json"))
-                config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json")) ?? new Config_Color();
+                config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();
             else
                 File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color, serializeIntend));
 
@@ -228,16 +229,17 @@ namespace KmoniReproducer
                             {
                                 StartTime = startT5,
                                 EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。例:300"))),
-                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。例1:1 例2:0.5"))),
+                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {calSpan.TotalSeconds} のようです。例1:1 例2:0.5"))),
                                 ObsSize = int.Parse(ConAsk("観測点サイズを入力してください。例:7")),
                                 DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y",
                                 DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y"
                             };
 
                             if (!File.Exists("config-color.json"))
-                                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color, serializeIntend));
+                                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color/*, serializeIntend*/));
                             _ = ConAsk("色をconfig-color.jsonで設定してください。エンターキーを押すと描画を開始します。", true);
-                            config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json")) ?? new Config_Color();
+                            config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();
+                            
                             Draw(data_Draw);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
                                 "1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +

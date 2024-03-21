@@ -2,7 +2,9 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
 
 namespace KmoniReproducer
@@ -530,6 +532,24 @@ namespace KmoniReproducer
             /// 震度7
             /// </summary>
             public Color S9 { get; set; } = Color.FromArgb(100, 0, 100);
+        }
+    }
+
+    /// <summary>
+    /// ColorをJSONシリアライズ/デシアライズできるようにします。
+    /// </summary>
+    public class ColorConverter : JsonConverter<Color>
+    {
+        public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var colorString = reader.GetString();
+            var argbValues = colorString.Split(',');
+            return Color.FromArgb(int.Parse(argbValues[0]), int.Parse(argbValues[1]), int.Parse(argbValues[2]), int.Parse(argbValues[3]));
+        }
+
+        public override void Write(Utf8JsonWriter writer, Color value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue($"{value.A},{value.R},{value.G},{value.B}");
         }
     }
 }
