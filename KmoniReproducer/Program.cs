@@ -53,6 +53,8 @@ namespace KmoniReproducer
         public static Config_Map config_map = new();
         public static Config_Draw config_draw = new();
 
+        public static JsonSerializerOptions serializeIntend = new() { WriteIndented = true };
+
         static void Main(string[] args)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);//Encoding.GetEncoding("Shift-JIS")に必要
@@ -64,6 +66,10 @@ namespace KmoniReproducer
             pfc.AddFontFile("Koruri-Regular.ttf");
             font = pfc.Families[0];
 
+            if (File.Exists("config-color.json"))
+                config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json")) ?? new Config_Color();
+            else
+                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color, serializeIntend));
 
             if (!Directory.Exists("mapdata"))
             {
@@ -81,7 +87,6 @@ namespace KmoniReproducer
                 ZipFile.ExtractToDirectory("mapdata.zip", "mapdata");
                 Thread.Sleep(100);
                 File.Delete("mapdata.zip");
-
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データ読み込み中...", ConsoleColor.Blue);
             try
@@ -146,7 +151,12 @@ namespace KmoniReproducer
                                 break;
                             }
                             data_Draw = new Data_Draw(data);
-                            Acc2JI(data, ref data_Draw, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));//todo:変えれるように
+
+                            Acc2JI(data, ref data_Draw,
+                                DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00")),
+                                DateTime.Parse(ConAsk($"計算終了日時(この時間未満まで計算)を入力してください。例:2024/01/01 00:03:00")),
+                                TimeSpan.Parse(ConAsk($"計算間隔を入力してください。例1:00:00:01 例2:00:00:00.5")),
+                                TimeSpan.Parse(ConAsk($"計算秒数を入力してください。基本は1分です。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:00:01:00")));
                             break;
                         case "3":
                             if (data_Draw == null)
@@ -159,7 +169,7 @@ namespace KmoniReproducer
                                 ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                                 break;
                             }
-                            var dir_out = $"output\\shindo\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
+                            var dir_out = $"output\\shindo\\{data_Draw.OriginTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
                             Directory.CreateDirectory(dir_out);
                             File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon},\"CalPeriod\":\"{data_Draw.CalPeriod}\"}}");
                             foreach (var obsData in data_Draw.Datas_Draw)
@@ -192,18 +202,46 @@ namespace KmoniReproducer
                                 ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                                 break;
                             }
+                            var calSpanCk = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
+                            var calSpan = calSpanCk[1] - calSpanCk[0];
+
+                            config_map = new Config_Map
+                            {
+                                MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080")),
+                                LatSta = double.Parse(ConAsk("緯度の始点(地図の下端)を入力してください。例:22.5")),
+                                LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5")),
+                                LonSta = double.Parse(ConAsk("経度の始点(地図の左端)を入力してください。例:122.5")),
+                                LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5")),
+                                MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。例:11\n" +
+                                "> 11.地震情報／都道府県等(軽量)\n" +
+                                "> 12.地震情報／都道府県等(詳細)\n" +
+                                "> 21.地震情報／細分区域(軽量)\n" +
+                                "> 22.地震情報／細分区域(詳細)\n" +
+                                "> 31.市町村等（地震津波関係）(軽量)\n" +
+                                "> 32.市町村等（地震津波関係）(詳細)"))
+                            };
                             config_draw = new Config_Draw
                             {
-                                StartTime = new DateTime(2024, 01, 01, 16, 10, 0),
-                                EndTime = new DateTime(2024, 01, 01, 16, 13, 0),
-                                DrawSpan = new TimeSpan(0, 0, 1),
-                                ObsSize = 7
+                                StartTime = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {data_Draw.OriginTime} となっています。例:2024/01/01 00:00:00")),
+                                EndTime = DateTime.Parse(ConAsk($"描画終了日時(この時間未満まで描画)を入力してください。例:2024/01/01 00:03:00")),
+                                DrawSpan = TimeSpan.Parse(ConAsk($"描画間隔を入力してください。震度計算では {calSpan} のようです。例:00:00:01 例2:00:00:00.5")),
+                                ObsSize = int.Parse(ConAsk("観測点サイズを入力してください。例:7")),
+                                DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y",
+                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y"
                             };
-                            config_map.MapSize = 1080;
-                            config_color.Obs_UseIntColor = true;
 
+                            if (!File.Exists("config-color.json"))
+                                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color, serializeIntend));
+                            _ = ConAsk("色をconfig-color.jsonで設定してください。エンターキーを押すと描画を開始します。", true);
+                            config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json")) ?? new Config_Color();
                             Draw(data_Draw);
-                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(30fps)(画像ファイルがあるフォルダで): ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output.mp4", ConsoleColor.Blue);
+                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
+                                "1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
+                                "3fps: ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
+                                "5fps: ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
+                                "10fps: ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
+                                "30fps: ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
+                                "60fps: ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));

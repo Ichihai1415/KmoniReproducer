@@ -49,7 +49,7 @@ namespace KmoniReproducer
                 infotextHei = g_tmp.MeasureString("あ", new Font(font, mapD36, GraphicsUnit.Pixel)).Height;
             }
 
-//#if true
+            //#if true
 #if false
             saveDir = $"output\\images";
             var img = new Bitmap(basemap);
@@ -130,14 +130,15 @@ namespace KmoniReproducer
                 {
                     var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                     var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
-                    var text = config_draw.DrawObsName ? drawData.StationName + " " : "";
+                    var obsNameEdited = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? name : drawData.StationName;
+                    var text = config_draw.DrawObsName ? obsNameEdited + " " : "";
                     if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
                     {
                         g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
                         if (config_draw.DrawObsShindo)
                             text += string.Format("{0:F1}", shindo);
                         infotextS.Add(shindo);
-                        infotextN.Add(drawData.StationName);
+                        infotextN.Add(obsNameEdited);
                     }
                     g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
                     g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
@@ -148,7 +149,7 @@ namespace KmoniReproducer
                 g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, img.Width - mapS, mapS);
                 g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
                 var infotextI = 0;
-                for (var infoy = mapD20; infoy < mapS; infoy += infotextHei)
+                for (var infoy = mapD20; infoy < mapS && infotextI < infotextS.Count; infoy += infotextHei)
                 {
                     g.DrawString((infotextS[infotextI] >= 0 ? " " : "") + infotextS[infotextI].ToString("F1"), new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoy);
                     g.DrawString(infotextN[infotextI], new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoy);
@@ -273,7 +274,7 @@ namespace KmoniReproducer
             else if (shindo >= 6.5)
                 return config_color.IntColor.S9;
             else
-                return Shindo2KColor[double.NaN];
+                return Datas.Shindo2KColor[double.NaN];
         }
 
         /// <summary>
@@ -288,7 +289,7 @@ namespace KmoniReproducer
                 shindo = 7d;
             if (shindo < -3d)
                 shindo = -3d;
-            return Shindo2KColor[shindo ?? double.NaN];
+            return Datas.Shindo2KColor[shindo ?? double.NaN];
         }
 
         /// <summary>
@@ -300,118 +301,6 @@ namespace KmoniReproducer
         {
             return new SolidBrush(Shindo2Color(shindo));
         }
-
-        /// <summary>
-        /// 震度から強震モニタ震度色に変換します。-3.0以下は-3.0,7.0以上は7.0,データなしの場合<c>double.NaN</c>を指定してください。
-        /// </summary>
-        /// <remarks>データ:https://github.com/ingen084/KyoshinShindoColorMap</remarks>
-        #region Shindo2KColor
-        public readonly static Dictionary<double, Color> Shindo2KColor = new()
-        {
-            { double.NaN, Color.FromArgb(0, 0, 0, 0)},
-            { -3.0, Color.FromArgb(0, 0, 205)    },
-            { -2.9, Color.FromArgb(0, 7, 209)    },
-            { -2.8, Color.FromArgb(0, 14, 214)   },
-            { -2.7, Color.FromArgb(0, 21, 218)   },
-            { -2.6, Color.FromArgb(0, 28, 223)   },
-            { -2.5, Color.FromArgb(0, 36, 227)   },
-            { -2.4, Color.FromArgb(0, 43, 231)   },
-            { -2.3, Color.FromArgb(0, 50, 236)   },
-            { -2.2, Color.FromArgb(0, 57, 240)   },
-            { -2.1, Color.FromArgb(0, 64, 245)   },
-            { -2.0, Color.FromArgb(0, 72, 250)   },
-            { -1.9, Color.FromArgb(0, 85, 238)   },
-            { -1.8, Color.FromArgb(0, 99, 227)   },
-            { -1.7, Color.FromArgb(0, 112, 216)  },
-            { -1.6, Color.FromArgb(0, 126, 205)  },
-            { -1.5, Color.FromArgb(0, 140, 194)  },
-            { -1.4, Color.FromArgb(0, 153, 183)  },
-            { -1.3, Color.FromArgb(0, 167, 172)  },
-            { -1.2, Color.FromArgb(0, 180, 161)  },
-            { -1.1, Color.FromArgb(0, 194, 150)  },
-            { -1.0, Color.FromArgb(0, 208, 139)  },
-            { -0.9, Color.FromArgb(6, 212, 130)  },
-            { -0.8, Color.FromArgb(12, 216, 121) },
-            { -0.7, Color.FromArgb(18, 220, 113) },
-            { -0.6, Color.FromArgb(25, 224, 104) },
-            { -0.5, Color.FromArgb(31, 228, 96)  },
-            { -0.4, Color.FromArgb(37, 233, 88)  },
-            { -0.3, Color.FromArgb(44, 237, 79)  },
-            { -0.2, Color.FromArgb(50, 241, 71)  },
-            { -0.1, Color.FromArgb(56, 245, 62)  },
-            {  0.0, Color.FromArgb(63, 250, 54)  },
-            {  0.1, Color.FromArgb(75, 250, 49)  },
-            {  0.2, Color.FromArgb(88, 250, 45)  },
-            {  0.3, Color.FromArgb(100, 251, 4)  },
-            {  0.4, Color.FromArgb(113, 251, 37) },
-            {  0.5, Color.FromArgb(125, 252, 33) },
-            {  0.6, Color.FromArgb(138, 252, 28) },
-            {  0.7, Color.FromArgb(151, 253, 24) },
-            {  0.8, Color.FromArgb(163, 253, 20) },
-            {  0.9, Color.FromArgb(176, 254, 16) },
-            {  1.0, Color.FromArgb(189, 255, 12) },
-            {  1.1, Color.FromArgb(195, 254, 10) },
-            {  1.2, Color.FromArgb(202, 254, 9)  },
-            {  1.3, Color.FromArgb(208, 254, 8)  },
-            {  1.4, Color.FromArgb(215, 254, 7)  },
-            {  1.5, Color.FromArgb(222, 255, 5)  },
-            {  1.6, Color.FromArgb(228, 254, 4)  },
-            {  1.7, Color.FromArgb(235, 255, 3)  },
-            {  1.8, Color.FromArgb(241, 254, 2)  },
-            {  1.9, Color.FromArgb(248, 255, 1)  },
-            {  2.0, Color.FromArgb(255, 255, 0)  },
-            {  2.1, Color.FromArgb(254, 251, 0)  },
-            {  2.2, Color.FromArgb(254, 248, 0)  },
-            {  2.3, Color.FromArgb(254, 244, 0)  },
-            {  2.4, Color.FromArgb(254, 241, 0)  },
-            {  2.5, Color.FromArgb(255, 238, 0)  },
-            {  2.6, Color.FromArgb(254, 234, 0)  },
-            {  2.7, Color.FromArgb(255, 231, 0)  },
-            {  2.8, Color.FromArgb(254, 227, 0)  },
-            {  2.9, Color.FromArgb(255, 224, 0)  },
-            {  3.0, Color.FromArgb(255, 221, 0)  },
-            {  3.1, Color.FromArgb(254, 213, 0)  },
-            {  3.2, Color.FromArgb(254, 205, 0)  },
-            {  3.3, Color.FromArgb(254, 197, 0)  },
-            {  3.4, Color.FromArgb(254, 190, 0)  },
-            {  3.5, Color.FromArgb(255, 182, 0)  },
-            {  3.6, Color.FromArgb(254, 174, 0)  },
-            {  3.7, Color.FromArgb(255, 167, 0)  },
-            {  3.8, Color.FromArgb(254, 159, 0)  },
-            {  3.9, Color.FromArgb(255, 151, 0)  },
-            {  4.0, Color.FromArgb(255, 144, 0)  },
-            {  4.1, Color.FromArgb(254, 136, 0)  },
-            {  4.2, Color.FromArgb(254, 128, 0)  },
-            {  4.3, Color.FromArgb(254, 121, 0)  },
-            {  4.4, Color.FromArgb(254, 113, 0)  },
-            {  4.5, Color.FromArgb(255, 106, 0)  },
-            {  4.6, Color.FromArgb(254, 98, 0)   },
-            {  4.7, Color.FromArgb(255, 90, 0)   },
-            {  4.8, Color.FromArgb(254, 83, 0)   },
-            {  4.9, Color.FromArgb(255, 75, 0)   },
-            {  5.0, Color.FromArgb(255, 68, 0)   },
-            {  5.1, Color.FromArgb(254, 61, 0)   },
-            {  5.2, Color.FromArgb(253, 54, 0)   },
-            {  5.3, Color.FromArgb(252, 47, 0)   },
-            {  5.4, Color.FromArgb(251, 40, 0)   },
-            {  5.5, Color.FromArgb(250, 33, 0)   },
-            {  5.6, Color.FromArgb(249, 27, 0)   },
-            {  5.7, Color.FromArgb(248, 20, 0)   },
-            {  5.8, Color.FromArgb(247, 13, 0)   },
-            {  5.9, Color.FromArgb(246, 6, 0)    },
-            {  6.0, Color.FromArgb(245, 0, 0)    },
-            {  6.1, Color.FromArgb(238, 0, 0)    },
-            {  6.2, Color.FromArgb(230, 0, 0)    },
-            {  6.3, Color.FromArgb(223, 0, 0)    },
-            {  6.4, Color.FromArgb(215, 0, 0)    },
-            {  6.5, Color.FromArgb(208, 0, 0)    },
-            {  6.6, Color.FromArgb(200, 0, 0)    },
-            {  6.7, Color.FromArgb(192, 0, 0)    },
-            {  6.8, Color.FromArgb(185, 0, 0)    },
-            {  6.9, Color.FromArgb(177, 0, 0)    },
-            {  7.0, Color.FromArgb(170, 0, 0)    }
-        };
-        #endregion
     }
 
 
