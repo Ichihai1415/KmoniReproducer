@@ -443,11 +443,11 @@ namespace KmoniReproducer
                     var data3Ac = data23[2].Accs.Skip(startIndex).Take(count).ToArray();
                     if (data1Ac.Length == 0)
                         continue;
-                    File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
+                    //File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
                     data1Ac = data1Ac.Select(rawAcc => rawAcc - data1Ac.Average()).ToArray();
                     data2Ac = data2Ac.Select(rawAcc => rawAcc - data2Ac.Average()).ToArray();
                     data3Ac = data3Ac.Select(rawAcc => rawAcc - data3Ac.Average()).ToArray();
-                    File.WriteAllText("data1Ac.txt", string.Join('\n', data1Ac));
+                    //File.WriteAllText("data1Ac.txt", string.Join('\n', data1Ac));
 
                     var nPow2 = 1;
                     while (nPow2 < count)
