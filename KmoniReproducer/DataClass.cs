@@ -141,7 +141,7 @@ namespace KmoniReproducer
             /// </summary>
             /// <param name="fileName">ファイル名</param>
             /// <returns>指定したファイルのデータ(加速度はgal変換・補正済み)</returns>
-            public static ObsData? KNET_ASCII2ObsData(string fileName)//https://www.kyoshin.bosai.go.jp/kyoshin/man/knetform.html
+            public static ObsData? KNET_ASCII2ObsData(string fileName)
             {
                 try
                 {
@@ -158,10 +158,10 @@ namespace KmoniReproducer
                         StationName = fileTexts[5],
                         StationLat = double.Parse(fileTexts[6]),
                         StationLon = double.Parse(fileTexts[7]),
-                        RecordTime = DateTime.Parse(fileTexts[9]).AddSeconds(-15),
+                        RecordTime = DateTime.Parse(fileTexts[9]).AddSeconds(-15),//https://www.kyoshin.bosai.go.jp/kyoshin/man/knetform.html
                         SamplingFreq = int.Parse(fileTexts[10].Replace("Hz", "")),
                         DataDir = fileTexts[12].Replace("4", "N-S").Replace("4", "E-W").Replace("6", "U-D"),//kikは1~6(4~6が地表)
-                        Accs = rawAccs.Select(rawAcc => (rawAcc - rawAccs.Average()) * scaleFactor).ToArray()//ここでも修正してるけどオプションで震度求めるとき修正
+                        Accs = rawAccs.Select(rawAcc => rawAcc * scaleFactor).ToArray()//震度求めるとき修正
                     };
                 }
                 catch (Exception ex)
@@ -300,11 +300,12 @@ namespace KmoniReproducer
         /// <param name="originTime">発生時刻</param>
         /// <param name="hypoLat">震源緯度</param>
         /// <param name="hypoLon">震源経度</param>
-        public Data_Draw(DateTime originTime, double hypoLat, double hypoLon)
+        public Data_Draw(DateTime originTime, double hypoLat, double hypoLon, TimeSpan? calPeriod = null)
         {
             OriginTime = originTime;
             HypoLat = hypoLat;
             HypoLon = hypoLon;
+            CalPeriod = calPeriod ?? TimeSpan.Zero;
         }
 
         /// <summary>
@@ -338,7 +339,7 @@ namespace KmoniReproducer
         /// <summary>
         /// 震度計算時間(通常1分)
         /// </summary>
-        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;
+        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;//ただの初期値、計算時に変える
 
         /// <summary>
         /// 観測点のデータのリスト

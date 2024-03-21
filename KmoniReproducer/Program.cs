@@ -103,121 +103,125 @@ namespace KmoniReproducer
             Data? data = null;
             Data_Draw? data_Draw = null;
             while (true)
-            {
-                var mode = ConAsk("モード(数字)を入力してください。\n" +
-                    "> 1.加速度データ読み込み(新規/追加)\n" +
-                    "> 2.震度計算\n" +
-                    "> 3.震度データ(独自形式)出力\n" +
-                    "> 4.震度データ(独自形式)読み込み\n" +
-                    "> 5.描画\n" +
-                    "> 8.tarファイルの展開\n" +
-                    "> 9.データのクリア\n" +
-                    "> 0.終了");
-                switch (mode)
+                try
                 {
-                    case "1":
-                        var dataSrc1 = ConAsk("データの機関(数字)を入力してください。\n" +
-                            "> 1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
-                            "> 2.気象庁(.csv)");
-                        switch (dataSrc1)
-                        {
-                            case "1":
-                                if (data == null)
-                                    data = GetDataFromKNETASCII();
-                                else
-                                    data.AddObsDatas(GetDataFromKNETASCII());
-                                break;
-                            case "2":
-                                if (data == null)
-                                    data = GetDataFromJMAcsv();
-                                else
-                                    data.AddObsDatas(GetDataFromJMAcsv());
-                                break;
-                            default:
-                                ConWrite("値が不正です。", ConsoleColor.Red);
-                                break;
-                        }
-                        break;
-                    case "2":
-                        if (data == null)
-                        {
-                            ConWrite("先に加速度データを読み込んでください。", ConsoleColor.Red);
+                    var mode = ConAsk("モード(数字)を入力してください。\n" +
+                        "> 1.加速度データ読み込み(新規/追加)\n" +
+                        "> 2.震度計算\n" +
+                        "> 3.震度データ(独自形式)出力\n" +
+                        "> 4.震度データ(独自形式)読み込み\n" +
+                        "> 5.描画\n" +
+                        "> 8.tarファイルの展開\n" +
+                        "> 9.データのクリア\n" +
+                        "> 0.終了");
+                    switch (mode)
+                    {
+                        case "1":
+                            var dataSrc1 = ConAsk("データの機関(数字)を入力してください。\n" +
+                                "> 1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
+                                "> 2.気象庁(.csv)");
+                            switch (dataSrc1)
+                            {
+                                case "1":
+                                    if (data == null)
+                                        data = GetDataFromKNETASCII();
+                                    else
+                                        data.AddObsDatas(GetDataFromKNETASCII());
+                                    break;
+                                case "2":
+                                    if (data == null)
+                                        data = GetDataFromJMAcsv();
+                                    else
+                                        data.AddObsDatas(GetDataFromJMAcsv());
+                                    break;
+                                default:
+                                    ConWrite("値が不正です。", ConsoleColor.Red);
+                                    break;
+                            }
                             break;
-                        }
-                        data_Draw = new Data_Draw(data);
-                        Acc2JI(data, ref data_Draw);
-                        break;
-                    case "3":
-                        if (data_Draw == null)
-                        {
-                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                        case "2":
+                            if (data == null)
+                            {
+                                ConWrite("先に加速度データを読み込んでください。", ConsoleColor.Red);
+                                break;
+                            }
+                            data_Draw = new Data_Draw(data);
+                            Acc2JI(data, ref data_Draw, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));//todo:変えれるように
                             break;
-                        }
-                        if (data_Draw.Datas_Draw.Count == 0)
-                        {
-                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                        case "3":
+                            if (data_Draw == null)
+                            {
+                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                break;
+                            }
+                            if (data_Draw.Datas_Draw.Count == 0)
+                            {
+                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                break;
+                            }
+                            var dir_out = $"output\\shindo\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
+                            Directory.CreateDirectory(dir_out);
+                            File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon},\"CalPeriod\":\"{data_Draw.CalPeriod}\"}}");
+                            foreach (var obsData in data_Draw.Datas_Draw)
+                                File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
+                            ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
                             break;
-                        }
-                        var dir_out = $"output\\{data_Draw.OriginTime:yyMMddHHmmss}-{data_Draw.Datas_Draw.Count}";
-                        if (data_Draw.CalPeriod != TimeSpan.Zero)
-                            dir_out += $"-{data_Draw.CalPeriod.TotalSeconds}s";
-                        Directory.CreateDirectory(dir_out);
-                        File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon}}}");
-                        foreach (var obsData in data_Draw.Datas_Draw)
-                            File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
-                        ConWrite($"{dir_out} に出力しました。");
-                        break;
-                    case "4":
-                        var dir_in = ConAsk("出力したフォルダを入力してください。").Replace("\"", "");
-                        ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
-                        var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
-                        var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
+                        case "4":
+                            var dir_in = ConAsk("出力したフォルダを入力してください。").Replace("\"", "");
+                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
+                            var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
+                            var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
 #pragma warning disable CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
-                        data_Draw = new Data_Draw(DateTime.Parse(paramNode["OriginTime"].ToString()), double.Parse(paramNode["HypoLat"].ToString()), double.Parse(paramNode["HypoLon"].ToString()))
-                        {
-                            Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(x => x.StationName, y => y)
-                        };
+                            data_Draw = new Data_Draw(DateTime.Parse(paramNode["OriginTime"].ToString()), double.Parse(paramNode["HypoLat"].ToString()), double.Parse(paramNode["HypoLon"].ToString()), TimeSpan.Parse((string?)paramNode["CalPeriod"] ?? "00:00:00"))
+                            {
+                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(x => x.StationName, y => y)
+                            };
 #pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
-                        ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
-                        break;
-                    case "5":
-                        if (data_Draw == null)
-                        {
-                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                             break;
-                        }
-                        if (data_Draw.Datas_Draw.Count == 0)
-                        {
-                            ConWrite("先に震度を計算してください。", ConsoleColor.Red);
-                            break;
-                        }
-                        config_draw = new Config_Draw
-                        {
-                            StartTime = new DateTime(2024, 01, 01, 16, 10, 0),
-                            EndTime = new DateTime(2024, 01, 01, 16, 13, 0),
-                            DrawSpan = new TimeSpan(0, 0, 1),
-                            ObsSize = 6
-                        };
-                        config_map.MapSize = 1080;
-                        //config_color.Obs_UseIntColor = true;
+                        case "5":
+                            if (data_Draw == null)
+                            {
+                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                break;
+                            }
+                            if (data_Draw.Datas_Draw.Count == 0)
+                            {
+                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                break;
+                            }
+                            config_draw = new Config_Draw
+                            {
+                                StartTime = new DateTime(2024, 01, 01, 16, 10, 0),
+                                EndTime = new DateTime(2024, 01, 01, 16, 13, 0),
+                                DrawSpan = new TimeSpan(0, 0, 1),
+                                ObsSize = 7
+                            };
+                            config_map.MapSize = 1080;
+                            config_color.Obs_UseIntColor = true;
 
-                        Draw(data_Draw);
-                        break;
-                    case "8":
-                        OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
-                        break;
-                    case "9":
-                        data = null;
-                        break;
-                    case "0":
-                        Console.ForegroundColor = ConsoleColor.Gray;
-                        Environment.Exit(0);
-                        break;
+                            Draw(data_Draw);
+                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(30fps)(画像ファイルがあるフォルダで): ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output.mp4", ConsoleColor.Blue);
+                            break;
+                        case "8":
+                            OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
+                            break;
+                        case "9":
+                            data = null;
+                            data_Draw = null;
+                            break;
+                        case "0":
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Environment.Exit(0);
+                            break;
+                    }
                 }
-            }
-
+                catch (Exception ex)
+                {
+                    ConWrite("[Main]", ex);
+                }
 
             //var data2 = GetDataFromJMAcsv();
             //var drawData = new Data_Draw();
@@ -335,7 +339,7 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// 加速度から震度を求めます。<paramref name="data"/>内部に保存されます。
+        /// 加速度から震度を求めます。<paramref name="drawData"/>内部に保存されます。
         /// </summary>
         /// <remarks>開始時刻:発生時刻　終了時刻:発生時刻+3分　描画間隔:1秒</remarks>
         /// <param name="data">加速度データ</param>
@@ -346,7 +350,7 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// 加速度から震度を求めます。<paramref name="data"/>内部に保存されます。
+        /// 加速度から震度を求めます。<paramref name="drawData"/>内部に保存されます。
         /// </summary>
         /// <param name="data">加速度データ</param>
         /// <param name="drawData">描画用データ(ref)</param>
@@ -367,24 +371,26 @@ namespace KmoniReproducer
             drawData.CalPeriod = calPeriod;
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
-            var total2 = data.ObsDatas.Length / 3;
+            var total2 = (double)data.ObsDatas.Length / 3;
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
             {
                 nowP++;
+                if (nowP % 10 == 0)
+                    GC.Collect();
                 var eta1 = (DateTime.Now - calStartT2) * (total - nowP);
                 var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
-                var text1 = $"\r now:{drawTime:HH:mm:ss.ff}  count_time:{nowP}/{total} ({nowP / total * 100:F2}％)";
-                var text2 = $"  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last time cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...";
+                var text1 = $"\r now:{drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / total * 100:F2}％) ";
+                var text2 = $"  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...";
                 calStartT2 = DateTime.Now;
                 var nowP2 = 0;
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     nowP2++;
-                    ConWrite(text1 + $"-count_data:{nowP2}/{total2} ({nowP2 / total2 * 100:F2}％)" + text2, ConsoleColor.Green, false);
+                    ConWrite(text1 + $"[data:{Math.Min(nowP2 / total2 * 100, 99.99):00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
 
                     var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
                     var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
@@ -399,11 +405,11 @@ namespace KmoniReproducer
                     var data3Ac = data23[2].Accs.Skip(startIndex).Take(count).ToArray();
                     if (data1Ac.Length == 0)
                         continue;
-                    //File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
+                    File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
                     data1Ac = data1Ac.Select(rawAcc => rawAcc - data1Ac.Average()).ToArray();
                     data2Ac = data2Ac.Select(rawAcc => rawAcc - data2Ac.Average()).ToArray();
                     data3Ac = data3Ac.Select(rawAcc => rawAcc - data3Ac.Average()).ToArray();
-                    //File.WriteAllText("data1Ac.txt", string.Join('\n', data1Ac));
+                    File.WriteAllText("data1Ac.txt", string.Join('\n', data1Ac));
 
                     var nPow2 = 1;
                     while (nPow2 < count)
@@ -452,7 +458,6 @@ namespace KmoniReproducer
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
                 }
-
             }
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 震度計算完了", ConsoleColor.Blue);
         }

@@ -12,21 +12,55 @@ namespace KmoniReproducer
     {
         public static void Draw(Data_Draw drawDatas)
         {
-            var saveDir = $"output";
-            Directory.CreateDirectory(saveDir);
+            var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
             var basemap = Draw_Map();
+            var textColor = new SolidBrush(config_color.Text);
 
-            var obsSize = config_draw.ObsSize * (config_map.MapSize / 1080);
+            var mapS = config_map.MapSize;
+            var mapD4 = mapS / 4f;
+            var mapD5 = mapS / 5f;
+            var mapD5p = mapS / 5f + mapS;
+            var mapD8 = mapS / 8f;
+            var mapD8p = mapS / 8f + mapS;
+            var mapD16 = mapS / 16f;
+            var mapD16p = mapS / 16f + mapS;
+            var mapD20 = mapS / 20f;
+            var mapD24 = mapS / 24f;
+            var mapD28 = mapS / 28f;
+            var mapD28i = mapS / 28;
+            var mapD30 = mapS / 30f;
+            var mapD36 = mapS / 36f;
+            var mapD60 = mapS / 60f;
+            var mapD60p = mapS / 60f + mapS;
+            var mapD180 = mapS / 180f;
+            var mapD1080 = mapS / 1080f;
+
+            var obsSize = config_draw.ObsSize * mapD1080;
             var obsSizeHalf = obsSize / 2;
-            var zoomW = config_map.MapSize / (config_map.LonEnd - config_map.LonSta);
-            var zoomH = config_map.MapSize / (config_map.LatEnd - config_map.LatSta);
+            var zoomW = mapS / (config_map.LonEnd - config_map.LonSta);
+            var zoomH = mapS / (config_map.LatEnd - config_map.LatSta);
 
-#if DEBUG
+            var mdsize = new SizeF();
+            var infotextHei = 0f;
+            using (var img_tmp = new Bitmap(100, 100))
+            using (var g_tmp = Graphics.FromImage(img_tmp))
+            {
+                mdsize = g_tmp.MeasureString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel));
+                infotextHei = g_tmp.MeasureString("あ", new Font(font, mapD36, GraphicsUnit.Pixel)).Height;
+            }
+
+//#if true
+#if false
+            saveDir = $"output\\images";
             var img = new Bitmap(basemap);
             var g = Graphics.FromImage(img);
-            var textColor = new SolidBrush(config_color.Text);
-            var drawTime = new DateTime(2024, 01, 01, 16, 11, 30);
-            foreach (var drawData in drawDatas.Datas_Draw.Values)
+            var drawTime = new DateTime(2024, 01, 01, 16, 10, 30);
+
+            var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
+            var infotextS = new List<double>();
+            var infotextN = new List<string>();
+            var infohead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
+            foreach (var drawData in sortedInts)
             {
                 var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                 var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
@@ -36,28 +70,63 @@ namespace KmoniReproducer
                     g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
                     if (config_draw.DrawObsShindo)
                         text += string.Format("{0:F1}", shindo);
+                    infotextS.Add(shindo);
+                    infotextN.Add(drawData.StationName);
                 }
                 g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
                 g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
             }
-            g.FillRectangle(new SolidBrush(config_color.InfoBack), config_map.MapSize, 0, img.Width - config_map.MapSize, config_map.MapSize);
-            g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, config_map.MapSize / 24, GraphicsUnit.Pixel), Brushes.White, 0, 0);
-            var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
-            g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), textColor, config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
+            infotextS.Reverse();
+            infotextN.Reverse();
+
+            g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, img.Width - mapS, mapS);
+            g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
+            var infotextI = 0;
+            for (var infoy = mapD20; infoy < mapS; infoy += infotextHei)
+            {
+                g.DrawString((infotextS[infotextI] >= 0 ? " " : "") + infotextS[infotextI].ToString("F1"), new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoy);
+                g.DrawString(infotextN[infotextI], new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoy);
+                g.FillRectangle(new SolidBrush(Shindo2Color_Int(infotextS[infotextI])), mapD60p, infoy, infotextHei, infotextHei);
+                g.FillRectangle(new SolidBrush(Shindo2Color_Kmoni(infotextS[infotextI])), mapD60p + mapD180 + infotextHei, infoy, infotextHei, infotextHei);
+                infotextI++;
+            }
+            g.DrawLine(new Pen(textColor, mapD1080), mapS, mapD20, img.Width, mapD20);
+            g.DrawLine(new Pen(textColor, mapD1080), mapD16p, mapD16p, img.Width, mapS);
+
+            g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD24, GraphicsUnit.Pixel), textColor, 0, 0);
+            g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS - mdsize.Width, mapS - mdsize.Height);
             var savePath = $"{saveDir}\\{DateTime.Now:yyyyMMddHHmmss}.png";
             img.Save(savePath, ImageFormat.Png);
             g.Dispose();
             img.Dispose();
 #else
 
+            Directory.CreateDirectory(saveDir);
+            var nowP = 0;
+            var total = (int)((config_draw.EndTime - config_draw.StartTime) / config_draw.DrawSpan);
+            var calStartT = DateTime.Now;
+            var calStartT2 = DateTime.Now;
 
-            var drawTime = config_draw.StartTime;
-            for (int i = 0; drawTime < config_draw.EndTime; i++)
+            for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
+                nowP++;
+                var eta1 = (DateTime.Now - calStartT2) * (total - nowP);
+                var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
+                if (eta1 > eta2)
+                    (eta1, eta2) = (eta2, eta1);
+                if (nowP % 100 == 0)
+                    GC.Collect();
+                ConWrite($"\r now:{drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...", ConsoleColor.Green, false);
+                calStartT2 = DateTime.Now;
+
                 var img = new Bitmap(basemap);
                 var g = Graphics.FromImage(img);
-                var textColor = new SolidBrush(config_color.Text);
-                foreach (var drawData in drawDatas.Datas_Draw.Values)
+
+                var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
+                var infotextS = new List<double>();
+                var infotextN = new List<string>();
+                var infohead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
+                foreach (var drawData in sortedInts)
                 {
                     var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                     var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
@@ -67,29 +136,39 @@ namespace KmoniReproducer
                         g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
                         if (config_draw.DrawObsShindo)
                             text += string.Format("{0:F1}", shindo);
+                        infotextS.Add(shindo);
+                        infotextN.Add(drawData.StationName);
                     }
                     g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
                     g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
                 }
-                g.FillRectangle(new SolidBrush(config_color.InfoBack), config_map.MapSize, 0, img.Width - config_map.MapSize, config_map.MapSize);
-                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, config_map.MapSize / 24, GraphicsUnit.Pixel), Brushes.White, 0, 0);
-                g.DrawLine(new Pen(Color.White, config_map.MapSize / 1080f), config_map.MapSize, config_map.MapSize * 36 / 1080, img.Width, config_map.MapSize * 36 / 1080);
-                var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
-                g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), textColor, config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
-                var savePath = $"{saveDir}\\{i:d4}.png";
+                infotextS.Reverse();
+                infotextN.Reverse();
+
+                g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, img.Width - mapS, mapS);
+                g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
+                var infotextI = 0;
+                for (var infoy = mapD20; infoy < mapS; infoy += infotextHei)
+                {
+                    g.DrawString((infotextS[infotextI] >= 0 ? " " : "") + infotextS[infotextI].ToString("F1"), new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoy);
+                    g.DrawString(infotextN[infotextI], new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoy);
+                    g.FillRectangle(new SolidBrush(Shindo2Color_Int(infotextS[infotextI])), mapD60p, infoy, infotextHei, infotextHei);
+                    g.FillRectangle(new SolidBrush(Shindo2Color_Kmoni(infotextS[infotextI])), mapD60p + mapD180 + infotextHei, infoy, infotextHei, infotextHei);
+                    infotextI++;
+                }
+                g.DrawLine(new Pen(textColor, mapD1080), mapS, mapD20, img.Width, mapD20);
+                g.DrawLine(new Pen(textColor, mapD1080), mapD16p, mapD16p, img.Width, mapS);
+
+                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD24, GraphicsUnit.Pixel), textColor, 0, 0);
+                g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS - mdsize.Width, mapS - mdsize.Height);
+                var savePath = $"{saveDir}\\{nowP:d4}.png";
                 img.Save(savePath, ImageFormat.Png);
                 g.Dispose();
                 img.Dispose();
-                drawTime += config_draw.DrawSpan;
             }
-
+            ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
 #endif
         }
-
-
-
-
-
 
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
 #pragma warning disable CS8604 // Null 参照引数の可能性があります。
@@ -162,39 +241,54 @@ namespace KmoniReproducer
         public static Color Shindo2Color(double? shindo)
         {
             shindo ??= double.NaN;
-            if (config_color.Obs_UseIntColor)
-            {
-                if (shindo < 0.5)
-                    return config_color.IntColor.S0;
-                else if (shindo < 1.5)
-                    return config_color.IntColor.S1;
-                else if (shindo < 2.5)
-                    return config_color.IntColor.S2;
-                else if (shindo < 3.5)
-                    return config_color.IntColor.S3;
-                else if (shindo < 4.5)
-                    return config_color.IntColor.S4;
-                else if (shindo < 5.0)
-                    return config_color.IntColor.S5;
-                else if (shindo < 5.5)
-                    return config_color.IntColor.S6;
-                else if (shindo < 6.0)
-                    return config_color.IntColor.S7;
-                else if (shindo < 6.5)
-                    return config_color.IntColor.S8;
-                else if (shindo >= 6.5)
-                    return config_color.IntColor.S9;
-                else
-                    return Shindo2KColor[double.NaN];
-            }
+            return config_color.Obs_UseIntColor ? Shindo2Color_Int(shindo) : Shindo2Color_Kmoni(shindo); ;
+        }
+
+        /// <summary>
+        /// 震度から描画色を求めます。
+        /// </summary>
+        /// <param name="shindo">震度</param>
+        /// <returns>震度に対応する色</returns>
+        public static Color Shindo2Color_Int(double? shindo)
+        {
+            shindo ??= double.NaN;
+            if (shindo < 0.5)
+                return config_color.IntColor.S0;
+            else if (shindo < 1.5)
+                return config_color.IntColor.S1;
+            else if (shindo < 2.5)
+                return config_color.IntColor.S2;
+            else if (shindo < 3.5)
+                return config_color.IntColor.S3;
+            else if (shindo < 4.5)
+                return config_color.IntColor.S4;
+            else if (shindo < 5.0)
+                return config_color.IntColor.S5;
+            else if (shindo < 5.5)
+                return config_color.IntColor.S6;
+            else if (shindo < 6.0)
+                return config_color.IntColor.S7;
+            else if (shindo < 6.5)
+                return config_color.IntColor.S8;
+            else if (shindo >= 6.5)
+                return config_color.IntColor.S9;
             else
-            {
-                if (shindo > 7d)
-                    shindo = 7d;
-                if (shindo < -3d)
-                    shindo = -3d;
-                return Shindo2KColor[shindo ?? double.NaN];
-            }
+                return Shindo2KColor[double.NaN];
+        }
+
+        /// <summary>
+        /// 震度から描画色を求めます。
+        /// </summary>
+        /// <param name="shindo">震度</param>
+        /// <returns>震度に対応する色</returns>
+        public static Color Shindo2Color_Kmoni(double? shindo)
+        {
+            shindo ??= double.NaN;
+            if (shindo > 7d)
+                shindo = 7d;
+            if (shindo < -3d)
+                shindo = -3d;
+            return Shindo2KColor[shindo ?? double.NaN];
         }
 
         /// <summary>
@@ -337,12 +431,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 描画間隔
         /// </summary>
-        public TimeSpan DrawSpan { get; set; }
+        public TimeSpan DrawSpan { get; set; } = TimeSpan.FromSeconds(1);
 
         /// <summary>
         /// 画像の高さ1080での観測点のサイズ
         /// </summary>
-        public int ObsSize { get; set; } = 6;
+        public int ObsSize { get; set; } = 7;
 
         /// <summary>
         /// 観測点名を観測点アイコン右に描画するか
