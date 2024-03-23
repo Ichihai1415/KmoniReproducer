@@ -435,7 +435,7 @@ namespace KmoniReproducer
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
                 var lastCalTime = DateTime.Now - calStartT2;
-                var text1 = $"└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
+                var text1 = $"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
                 var text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))} ~ " +
                     $"{(eta1 >= TimeSpan.FromHours(1) ? eta2.TotalHours.ToString("0") + eta2.ToString("\\:mm\\:ss") : eta2.TotalMinutes.ToString("0") + eta2.ToString("\\:ss\\.ff"))} " +
                     $"(last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString("F2") : lastCalTime.TotalMilliseconds.ToString("F2") + "m")}s valid:{validObsCount})";
@@ -545,21 +545,22 @@ namespace KmoniReproducer
         retry:
             Console.ForegroundColor = ConsoleColor.Cyan;
             var ans = Console.ReadLine();
-            if (allowNull)
-            {
-                if (defaultValue != null)
+            if (string.IsNullOrEmpty(ans))
+                if (allowNull)
                 {
-                    Console.SetCursorPosition(0, Console.CursorTop - 1);
-                    ConWrite($"(\"{defaultValue}\"を自動入力しました)", ConsoleColor.Yellow);
+                    if (defaultValue != null)
+                    {
+                        Console.SetCursorPosition(0, Console.CursorTop - 1);
+                        ConWrite($"(\"{defaultValue}\"を自動入力しました)", ConsoleColor.Yellow);
+                    }
+                    return string.IsNullOrEmpty(ans) ? defaultValue ?? "" : ans;
                 }
-                return string.IsNullOrEmpty(ans) ? defaultValue ?? "" : ans;
-            }
-            else if (string.IsNullOrEmpty(ans))
-            {
-                ConWrite("値を入力してください。", ConsoleColor.Red, false);
-                ConWrite(message);
-                goto retry;
-            }
+                else
+                {
+                    ConWrite("値を入力してください。", ConsoleColor.Red, false);
+                    ConWrite(message);
+                    goto retry;
+                }
             else
                 return ans;
         }
