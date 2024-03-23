@@ -1,5 +1,4 @@
-﻿using System.Data;
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using System.Text;
 using static KmoniReproducer.Program;
 
@@ -29,14 +28,14 @@ namespace KmoniReproducer
 #pragma warning disable CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
                 var data = new Data
                 {
-                    OriginTime = DateTime.Parse(fileText1[0]),
-                    HypoLat = double.Parse(fileText1[1]),
-                    HypoLon = double.Parse(fileText1[2]),
+                    OriginTime = fileText1[0] == "" ? DateTime.MinValue : DateTime.Parse(fileText1[0]),//即時公開データ等震源データがない
+                    HypoLat = fileText1[1] == "" ? -200d : double.Parse(fileText1[1]),
+                    HypoLon = fileText1[2] == "" ? -200d : double.Parse(fileText1[2]),
                     ObsDatas = fileNames.Select(ObsData.KNET_ASCII2ObsData).Where(x => x != null).ToArray()
                 };
 #pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
-                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
+                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                 return data;
             }
             catch (Exception ex)
@@ -51,9 +50,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 気象庁加速度データのファイル名を指定して<c>Data</c>を初期化します。
         /// </summary>
-        /// <remarks>地震データは存在しません。</remarks>
+        /// <remarks>地震データは存在しません。ユーザー入力で指定することができます(<c>Data.AddObsDatas()</c>で追加時にK-NET,KiK-netのものになるように調整されます)。</remarks>
         /// <param name="fileNames">ファイル名の配列</param>
-        public static Data? JMAcsv2Data(string[] fileNames)
+        /// <param name="originTime">(発生日時)</param>
+        /// <param name="hypoLat">(震源緯度)</param>
+        /// <param name="hypoLon">(震源経度)</param>
+        public static Data? JMAcsv2Data(string[] fileNames, DateTime? originTime = null, double? hypoLat = null, double? hypoLon = null)
         {
             try
             {
@@ -63,12 +65,18 @@ namespace KmoniReproducer
 #pragma warning disable CS8603 // Null 参照戻り値である可能性があります。
                 var data = new Data
                 {
-                    OriginTime = new DateTime(initTimeInts[0], initTimeInts[1], initTimeInts[2], initTimeInts[3], initTimeInts[4], initTimeInts[5]),//とりあえず最初
+                    //OriginTime = new DateTime(initTimeInts[0], initTimeInts[1], initTimeInts[2], initTimeInts[3], initTimeInts[4], initTimeInts[5]),//とりあえず最初//やっぱりやめる
                     ObsDatas = fileNames.Select(ObsData.JMAcsv2ObsData).Where(x => x != null).SelectMany(x => x).ToArray()
                 };
 #pragma warning restore CS8603 // Null 参照戻り値である可能性があります。
+                if (originTime != null)
+                    data.OriginTime = (DateTime)originTime;
+                if (hypoLat != null)
+                    data.HypoLat = (double)hypoLat;
+                if (hypoLon != null)
+                    data.HypoLon = (double)hypoLon;
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
-                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
+                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                 return data;
             }
             catch (Exception ex)
@@ -84,12 +92,22 @@ namespace KmoniReproducer
         /// ObsDatasを追加します。
         /// </summary>
         /// <param name="data">追加するObsDatasを含むData</param>
-        public void AddObsDatas(Data? data)
+        /// <param name="changeEqinfo">地震データを上書きするか(K-NET,KiK-netのみ)　<paramref name="data"/>に無ければ上書きしません。</param>
+        public void AddObsDatas(Data? data, bool changeEqinfo)
         {
             if (data == null)
                 return;
             if (data.ObsDatas == null)
                 return;
+            if (changeEqinfo)
+            {
+                if (data.OriginTime == DateTime.MinValue)
+                    OriginTime = data.OriginTime;
+                if (data.HypoLat == -200d)
+                    HypoLat = data.HypoLat;
+                if (data.HypoLon == -200d)
+                    HypoLon = data.HypoLon;
+            }
             AddObsDatas(data.ObsDatas);
         }
 
@@ -108,7 +126,7 @@ namespace KmoniReproducer
             obsDataList.AddRange(obsDatas);
             ObsDatas = [.. obsDataList];
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 追加完了", ConsoleColor.Blue);
-            ConWrite($"dataCount:{ObsDatas.Length}(points:{ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:.00}MB", ConsoleColor.Green);
+            ConWrite($"dataCount:{ObsDatas.Length}(points:{ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
         }
 
         /// <summary>
@@ -119,12 +137,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 震源緯度
         /// </summary>
-        public double HypoLat { get; set; } = 0;
+        public double HypoLat { get; set; } = -200d;
 
         /// <summary>
         /// 震源経度
         /// </summary>
-        public double HypoLon { get; set; } = 0;
+        public double HypoLon { get; set; } = -200d;
 
         /// <summary>
         /// 観測データの配列
@@ -189,8 +207,16 @@ namespace KmoniReproducer
                         fileTexts[i] = fileTexts[i].Split(',')[0].Split('=')[1];//,は古いやつ用
                     var initTimeInts = fileTexts[5].Replace("   ", " 19").Split(' ').Skip(1).Select(int.Parse).ToArray();//1900年代は  xx表記になってる
                     var stationName = fileTexts[0].Replace(" ", "");
-                    var stationLat = double.Parse(fileTexts[1].Replace(" ", ""));
-                    var stationLon = double.Parse(fileTexts[2].Replace(" ", ""));
+                    if (string.IsNullOrEmpty(stationName))
+                        return null;
+                    var stationLatSt = fileTexts[1].Replace(" ", "");
+                    if (string.IsNullOrEmpty(stationLatSt))//緯度経度なしのを除外しない場合[return null; <--> stationLatSt = "-200";]変える
+                        return null;/*stationLatSt = "-200";*/
+                    var stationLat = double.Parse(stationLatSt);
+                    var stationLonSt = fileTexts[2].Replace(" ", "");
+                    if (string.IsNullOrEmpty(stationLonSt))
+                        return null; /*stationLonSt = "-200";*/
+                    var stationLon = double.Parse(stationLonSt);
                     var samplingFreq = int.Parse(fileTexts[3].Replace(" ", "").Replace("Hz", ""));
                     var recordTime = new DateTime(initTimeInts[0], initTimeInts[1], initTimeInts[2], initTimeInts[3], initTimeInts[4], initTimeInts[5]);
                     var accs = fileTexts.Skip(7).Select(x => x.Replace(" ", "").Split(',')).ToArray();
@@ -247,12 +273,12 @@ namespace KmoniReproducer
             /// <summary>
             /// 観測点緯度
             /// </summary>
-            public double StationLat { get; set; } = 0;
+            public double StationLat { get; set; } = -200d;
 
             /// <summary>
             /// 観測点経度
             /// </summary>
-            public double StationLon { get; set; } = 0;
+            public double StationLon { get; set; } = -200d;
 
             /// <summary>
             /// 記録開始時刻
@@ -320,12 +346,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 震源緯度
         /// </summary>
-        public double HypoLat { get; set; } = 0;
+        public double HypoLat { get; set; } = -200d;
 
         /// <summary>
         /// 震源経度
         /// </summary>
-        public double HypoLon { get; set; } = 0;
+        public double HypoLon { get; set; } = -200d;
 
         /// <summary>
         /// 震度計算時間(通常1分)
@@ -372,12 +398,12 @@ namespace KmoniReproducer
             /// <summary>
             /// 観測点緯度
             /// </summary>
-            public double StationLat { get; set; } = 0;
+            public double StationLat { get; set; } = -200d;
 
             /// <summary>
             /// 観測点経度
             /// </summary>
-            public double StationLon { get; set; } = 0;
+            public double StationLon { get; set; } = -200d;
 
             /// <summary>
             /// 時刻ごとの震度

@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KmoniReproducer
 {

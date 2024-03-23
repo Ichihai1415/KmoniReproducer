@@ -135,13 +135,13 @@ namespace KmoniReproducer
                                     if (data == null)
                                         data = GetDataFromKNETASCII();
                                     else
-                                        data.AddObsDatas(GetDataFromKNETASCII());
+                                        data.AddObsDatas(GetDataFromKNETASCII(), true);
                                     break;
                                 case "2":
                                     if (data == null)
                                         data = GetDataFromJMAcsv();
                                     else
-                                        data.AddObsDatas(GetDataFromJMAcsv());
+                                        data.AddObsDatas(GetDataFromJMAcsv(), false);
                                     break;
                                 default:
                                     ConWrite("値が不正です。", ConsoleColor.Red);
@@ -155,7 +155,7 @@ namespace KmoniReproducer
                                 break;
                             }
 
-                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00", true, data.OriginTime.ToString()));
+                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {(data.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--" : data.OriginTime)} となっています。例:2024/01/01 00:00:00", data.OriginTime != DateTime.MinValue, data.OriginTime.ToString()));
                             Acc2JI(data, out var data_Draw_tmp,
                                 startT2,
                                 startT2.AddSeconds(int.Parse(ConAsk($"計算開始日時から終了までの時間(秒)を入力してください。例:300", true, "300"))),
@@ -230,9 +230,9 @@ namespace KmoniReproducer
                             config_map = new Config_Map
                             {
                                 MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080", true, "1080")),
-                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は{data_Draw.HypoLat}となっています。", true, "22.5")),
+                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は{(data_Draw.HypoLat == -200d ? "--" : data_Draw.HypoLat)}となっています。", true, "22.5")),
                                 LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5", true, "47.5")),
-                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は{data_Draw.HypoLon}となっています。", true, "122.5")),
+                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は{(data_Draw.HypoLon == -200d ? "--" : data_Draw.HypoLon)}となっています。", true, "122.5")),
                                 LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5", true, "147.5")),
                                 MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。例:11\n" +
                                 "> 11.地震情報／都道府県等(軽量)\n" +
@@ -246,11 +246,11 @@ namespace KmoniReproducer
                             config_draw = new Config_Draw
                             {
                                 StartTime = startT5,
-                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.FullCalPeriodSec == -1 ? "--" : data_Draw.FullCalPeriodSec)} となっています。 例:300", data_Draw.FullCalPeriodSec != -1, data_Draw.FullCalPeriodSec))),
-                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds))),
+                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.FullCalPeriodSec == -1 ? "--" : data_Draw.FullCalPeriodSec)} となっています。 例:300", data_Draw.FullCalPeriodSec != -1, data_Draw.FullCalPeriodSec.ToString()))),
+                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds.ToString()))),
                                 ObsSize = int.Parse(ConAsk("観測点サイズ(マップサイズ1080での相対値)を入力してください。例:7 (←は全国表示で推奨)", true, "7")),
-                                DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true, "n") == "y",
-                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true, "n") == "y"
+                                DrawObsName = ConAsk("観測点円の右に観測点名を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y",
+                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y"
                             };
 
                             if (!File.Exists("config-color.json"))
@@ -324,7 +324,17 @@ namespace KmoniReproducer
                 ConWrite("見つかりませんでした。", ConsoleColor.Red);
                 return null;
             }
-            return JMAcsv2Data(files);//.Where(x => !x.EndsWith("level.csv")).ToArray()
+            DateTime? originTime_tmp = null;
+            double? hypoLat_tmp = null;
+            double? hypoLon_tmp = null;
+            if (ConAsk("地震データ(発生日時、震源緯度経度)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合それが優先されます。", true, "n") == "y")
+            {
+                originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
+                hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
+                hypoLon_tmp = double.Parse(ConAsk("震源の経度を入力してください。例:135.79", true, "-200"));
+            }
+            return JMAcsv2Data(files, originTime_tmp == DateTime.MinValue ? null : originTime_tmp,
+                hypoLat_tmp == -200d ? null : hypoLat_tmp, hypoLon_tmp == -200d ? null : hypoLon_tmp);//.Where(x => !x.EndsWith("level.csv")).ToArray()
         }
 
         /// <summary>
