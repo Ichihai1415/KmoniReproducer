@@ -15,6 +15,7 @@ namespace KmoniReproducer
         public static void Draw(Data_Draw drawDatas)
         {
             var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} マップ描画中...", ConsoleColor.Blue);
             var basemap = Draw_Map();
             var textColor = new SolidBrush(config_color.Text);
 
@@ -108,10 +109,11 @@ namespace KmoniReproducer
             var total = (int)((config_draw.EndTime - config_draw.StartTime) / config_draw.DrawSpan);
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
-            ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
             foreach (var drawData in drawDatas.Datas_Draw.Values)
                 drawData.StationName = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? $"{name} ({drawData.StationName})" : drawData.StationName;
 
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} データ描画中...", ConsoleColor.Blue);
+            ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
                 nowP++;
@@ -185,33 +187,40 @@ namespace KmoniReproducer
             var mapImg = new Bitmap(config_map.MapSize * 16 / 9, config_map.MapSize);
             var zoomW = config_map.MapSize / (config_map.LonEnd - config_map.LonSta);
             var zoomH = config_map.MapSize / (config_map.LatEnd - config_map.LatSta);
-            var mapjson = MapSelecter();
             var g = Graphics.FromImage(mapImg);
             g.Clear(config_color.Map.Sea);
-            var gPath = new GraphicsPath();
-            gPath.StartFigure();
-            foreach (var mapjson_feature in mapjson["features"].AsArray())
+            var mapType = (int)config_map.MapType / 10;
+            var mapDetail = (int)config_map.MapType % 10;
+
+            for (var i = 1; i <= mapType; i++)
             {
-                if (mapjson_feature["geometry"] == null)
-                    continue;
-                if ((string?)mapjson_feature["geometry"]["type"] == "Polygon")
+                var mapjson = MapSelecter((Config_Map.MapKind)(i * 10 + mapDetail));
+                using var gPath = new GraphicsPath();
+                gPath.StartFigure();
+                foreach (var mapjson_feature in mapjson["features"].AsArray())
                 {
-                    var points = mapjson_feature["geometry"]["coordinates"][0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
-                    if (points.Length > 2)
-                        gPath.AddPolygon(points);
-                }
-                else
-                {
-                    foreach (var mapjson_coordinates in mapjson_feature["geometry"]["coordinates"].AsArray())
+                    if (mapjson_feature["geometry"] == null)
+                        continue;
+                    if ((string?)mapjson_feature["geometry"]["type"] == "Polygon")
                     {
-                        var points = mapjson_coordinates[0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
+                        var points = mapjson_feature["geometry"]["coordinates"][0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
                         if (points.Length > 2)
                             gPath.AddPolygon(points);
                     }
+                    else
+                    {
+                        foreach (var mapjson_coordinates in mapjson_feature["geometry"]["coordinates"].AsArray())
+                        {
+                            var points = mapjson_coordinates[0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
+                            if (points.Length > 2)
+                                gPath.AddPolygon(points);
+                        }
+                    }
                 }
+                if (i == 1)
+                    g.FillPath(new SolidBrush(config_color.Map.Japan), gPath);
+                g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f * (3 - i)), gPath);
             }
-            g.FillPath(new SolidBrush(config_color.Map.Japan), gPath);
-            g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f), gPath);
             var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
             g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
             g.Dispose();
@@ -229,6 +238,28 @@ namespace KmoniReproducer
         public static JsonNode MapSelecter()
         {
             return config_map.MapType switch
+            {
+                Config_Map.MapKind.map_pref_min => map_pref_min,
+                Config_Map.MapKind.map_pref_mid => map_pref_mid,
+                Config_Map.MapKind.map_loca_min => map_loca_min,
+                Config_Map.MapKind.map_loca_mid => map_loca_mid,
+                Config_Map.MapKind.map_city_min => map_city_min,
+                Config_Map.MapKind.map_city_mid => map_city_mid,
+                _ => throw new Exception("マップ設定が正しくありません。"),
+            };
+        }
+#pragma warning restore CS8603 // Null 参照戻り値である可能性があります。
+
+#pragma warning disable CS8603 // Null 参照戻り値である可能性があります。
+        /// <summary>
+        /// マップのデータを選択します。
+        /// </summary>
+        /// <param name="mapKind">マップの種類</param>
+        /// <returns>引数に対応する地図データ(JsonNode)</returns>
+        /// <exception cref="Exception">マップ設定が正しくない場合</exception>
+        public static JsonNode MapSelecter(Config_Map.MapKind mapKind)
+        {
+            return mapKind switch
             {
                 Config_Map.MapKind.map_pref_min => map_pref_min,
                 Config_Map.MapKind.map_pref_mid => map_pref_mid,
@@ -378,7 +409,7 @@ namespace KmoniReproducer
         /// <summary>
         /// マップの種類
         /// </summary>
-        public MapKind MapType = MapKind.map_pref_min;
+        public MapKind MapType { get; set; } = MapKind.map_pref_min;
 
         /// <summary>
         /// マップの種類

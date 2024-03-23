@@ -181,8 +181,8 @@ namespace KmoniReproducer
                                 $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
                                 $"\"HypoLat\":{data_Draw.HypoLat}," +
                                 $"\"HypoLon\":{data_Draw.HypoLon}," +
-                                $"\"CalPeriod\":\"{data_Draw.CalPeriod}," +
-                                $"\"TotalCalPeriodSec\":\"{data_Draw.TotalCalPeriodSec}\"" +
+                                $"\"CalPeriod\":\"{data_Draw.CalPeriod}\"," +
+                                $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}" +
                                 "}");
                             foreach (var obsData in data_Draw.Datas_Draw)
                                 File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
@@ -202,11 +202,11 @@ namespace KmoniReproducer
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
                             data_Draw = new Data_Draw()
                             {
-                                CalStartTime = DateTime.Parse(paramNode["DStartTime"]?.ToString() ?? DateTime.MinValue.ToString()),
+                                CalStartTime = DateTime.Parse(paramNode["CalStartTime"]?.ToString() ?? DateTime.MinValue.ToString()),
                                 HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
                                 HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
-                                CalPeriod = TimeSpan.Parse((string?)paramNode["CalPeriod"] ?? "00:00:00"),
-                                TotalCalPeriodSec = int.Parse((string?)paramNode["FullCalPeriod"] ?? "-1"),
+                                CalPeriod = TimeSpan.Parse(paramNode["CalPeriod"]?.ToString() ?? "00:00:00"),
+                                TotalCalPeriodSec = int.Parse(paramNode["TotalCalPeriodSec"]?.ToString() ?? "-1"),
                                 Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v)
                             };
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
@@ -230,17 +230,17 @@ namespace KmoniReproducer
                             config_map = new Config_Map
                             {
                                 MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080", true, "1080")),
-                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は{(data_Draw.HypoLat == -200d ? "--" : data_Draw.HypoLat)}となっています。", true, "22.5")),
+                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は {(data_Draw.HypoLat == -200d ? "--" : data_Draw.HypoLat)} となっています。", true, "22.5")),
                                 LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5", true, "47.5")),
-                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は{(data_Draw.HypoLon == -200d ? "--" : data_Draw.HypoLon)}となっています。", true, "122.5")),
+                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は {(data_Draw.HypoLon == -200d ? "--" : data_Draw.HypoLon)} となっています。", true, "122.5")),
                                 LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5", true, "147.5")),
-                                MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。例:11\n" +
-                                "> 11.地震情報／都道府県等(軽量)\n" +
-                                "> 12.地震情報／都道府県等(詳細)\n" +
-                                "> 21.地震情報／細分区域(軽量)\n" +
-                                "> 22.地震情報／細分区域(詳細)\n" +
-                                "> 31.市町村等（地震津波関係）(軽量)\n" +
-                                "> 32.市町村等（地震津波関係）(詳細)", true, "11"))
+                                MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。線の太さは種類ごとに固定なため範囲に応じて変えると良いです。例:11\n" +
+                                "> 11.地震情報／都道府県等 (軽量)\n" +
+                                "> 12.地震情報／都道府県等 (詳細)\n" +
+                                "> 21.地震情報／都道府県等 + 地震情報／細分区域 (軽量)\n" +
+                                "> 22.地震情報／都道府県等 + 地震情報／細分区域 (詳細)\n" +
+                                "> 31.地震情報／都道府県等 + 地震情報／細分区域 + 市町村等（地震津波関係） (軽量)\n" +
+                                "> 32.地震情報／都道府県等 + 地震情報／細分区域 + 市町村等（地震津波関係） (詳細)", true, "11"))
                             };
                             var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.CalStartTime)} となっています。例:2024/01/01 00:00:00", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString()));
                             config_draw = new Config_Draw
@@ -260,12 +260,12 @@ namespace KmoniReproducer
 
                             Draw(data_Draw);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
-                                "- 1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
-                                "- 3fps: ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
-                                "- 5fps: ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
-                                "- 10fps: ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
-                                "- 30fps: ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
-                                "- 60fps: ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
+                                "- 1fps:    ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
+                                "- 3fps:    ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
+                                "- 5fps:    ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
+                                "- 10fps:   ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
+                                "- 30fps:   ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
+                                "- 60fps:   ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
