@@ -109,6 +109,8 @@ namespace KmoniReproducer
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
             ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
+            foreach (var drawData in drawDatas.Datas_Draw.Values)
+                drawData.StationName = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? $"{name} ({drawData.StationName})" : drawData.StationName;
 
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
@@ -134,7 +136,7 @@ namespace KmoniReproducer
                 {
                     var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
                     var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
-                    var obsNameEdited = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? name : drawData.StationName;
+                    var obsNameEdited = drawData.StationName;
                     var text = config_draw.DrawObsName ? obsNameEdited + " " : "";
                     if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
                     {

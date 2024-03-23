@@ -174,16 +174,16 @@ namespace KmoniReproducer
                                 ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                                 break;
                             }
-                            var dir_out = $"output\\shindo\\{data_Draw.OriginTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
+                            var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
                             Directory.CreateDirectory(dir_out);
                             File.WriteAllText($"{dir_out}\\_param.json",
-                                "{{" +
-                                $"\"OriginTime\":\"{data_Draw.OriginTime}\"," +
+                                "{" +
+                                $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
                                 $"\"HypoLat\":{data_Draw.HypoLat}," +
                                 $"\"HypoLon\":{data_Draw.HypoLon}," +
                                 $"\"CalPeriod\":\"{data_Draw.CalPeriod}," +
-                                $"\"FullCalPeriodSec\":\"{data_Draw.FullCalPeriodSec}\"" +
-                                "}}");
+                                $"\"TotalCalPeriodSec\":\"{data_Draw.TotalCalPeriodSec}\"" +
+                                "}");
                             foreach (var obsData in data_Draw.Datas_Draw)
                                 File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
                             ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
@@ -202,11 +202,11 @@ namespace KmoniReproducer
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
                             data_Draw = new Data_Draw()
                             {
-                                OriginTime = DateTime.Parse(paramNode["OriginTime"]?.ToString() ?? DateTime.MinValue.ToString()),
+                                CalStartTime = DateTime.Parse(paramNode["DStartTime"]?.ToString() ?? DateTime.MinValue.ToString()),
                                 HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
                                 HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
                                 CalPeriod = TimeSpan.Parse((string?)paramNode["CalPeriod"] ?? "00:00:00"),
-                                FullCalPeriodSec = int.Parse((string?)paramNode["FullCalPeriod"] ?? "-1"),
+                                TotalCalPeriodSec = int.Parse((string?)paramNode["FullCalPeriod"] ?? "-1"),
                                 Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v)
                             };
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
@@ -242,11 +242,11 @@ namespace KmoniReproducer
                                 "> 31.市町村等（地震津波関係）(軽量)\n" +
                                 "> 32.市町村等（地震津波関係）(詳細)", true, "11"))
                             };
-                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {(data_Draw.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.OriginTime)} となっています。例:2024/01/01 00:00:00", data_Draw.OriginTime != DateTime.MinValue, data_Draw.OriginTime.ToString()));
+                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.CalStartTime)} となっています。例:2024/01/01 00:00:00", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString()));
                             config_draw = new Config_Draw
                             {
                                 StartTime = startT5,
-                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.FullCalPeriodSec == -1 ? "--" : data_Draw.FullCalPeriodSec)} となっています。 例:300", data_Draw.FullCalPeriodSec != -1, data_Draw.FullCalPeriodSec.ToString()))),
+                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.TotalCalPeriodSec == -1 ? "--" : data_Draw.TotalCalPeriodSec)} となっています。 例:300", data_Draw.TotalCalPeriodSec != -1, data_Draw.TotalCalPeriodSec.ToString()))),
                                 DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds.ToString()))),
                                 ObsSize = int.Parse(ConAsk("観測点サイズ(マップサイズ1080での相対値)を入力してください。例:7 (←は全国表示で推奨)", true, "7")),
                                 DrawObsName = ConAsk("観測点円の右に観測点名を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y",
@@ -413,8 +413,9 @@ namespace KmoniReproducer
             }
             drawData = new Data_Draw(data)
             {
+                CalStartTime = startTime,
                 CalPeriod = calPeriod,
-                FullCalPeriodSec = (int)(endTime - startTime).TotalSeconds
+                TotalCalPeriodSec = (int)(endTime - startTime).TotalSeconds
             };
 
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 震度計算中...", ConsoleColor.Blue);

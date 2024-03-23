@@ -101,11 +101,11 @@ namespace KmoniReproducer
                 return;
             if (changeEqinfo)
             {
-                if (data.OriginTime == DateTime.MinValue)
+                if (data.OriginTime != DateTime.MinValue)
                     OriginTime = data.OriginTime;
-                if (data.HypoLat == -200d)
+                if (data.HypoLat != -200d)
                     HypoLat = data.HypoLat;
-                if (data.HypoLon == -200d)
+                if (data.HypoLon != -200d)
                     HypoLon = data.HypoLon;
             }
             AddObsDatas(data.ObsDatas);
@@ -320,7 +320,6 @@ namespace KmoniReproducer
         /// <param name="data">一地震での加速度データと地震データ</param>
         public Data_Draw(Data data)
         {
-            OriginTime = data.OriginTime;
             HypoLat = data.HypoLat;
             HypoLon = data.HypoLon;
         }
@@ -339,9 +338,9 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// 発生時刻
+        /// 計算開始時刻
         /// </summary>
-        public DateTime OriginTime { get; set; } = DateTime.MinValue;
+        public DateTime CalStartTime { get; set; } = DateTime.MinValue;
 
         /// <summary>
         /// 震源緯度
@@ -356,12 +355,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 震度計算時間(通常1分)
         /// </summary>
-        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;//初期値 計算時に変える
+        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;
 
         /// <summary>
         /// 全計算期間(終了時刻-開始時刻)
         /// </summary>
-        public int FullCalPeriodSec { get; set; } = -1;//初期値 計算時に変える
+        public int TotalCalPeriodSec { get; set; } = -1;
 
         /// <summary>
         /// 観測点のデータのリスト
