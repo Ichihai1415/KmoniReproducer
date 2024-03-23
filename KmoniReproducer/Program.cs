@@ -55,7 +55,7 @@ namespace KmoniReproducer
 
         public static JsonSerializerOptions serializeIntend = new() { WriteIndented = true };
 
-        static void Main(string[] args)
+        static void Main(/*string[] args*/)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);//Encoding.GetEncoding("Shift-JIS")に必要
             if (!File.Exists("Koruri-Regular.ttf"))
@@ -106,8 +106,9 @@ namespace KmoniReproducer
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
 
-            ConWrite("【お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
-                "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。");
+            ConWrite("【注意/お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
+                "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
+                "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
             Data? data = null;
             Data_Draw? data_Draw = null;
             while (true)
@@ -153,14 +154,14 @@ namespace KmoniReproducer
                                 ConWrite("先に加速度データを読み込んでください。", ConsoleColor.Red);
                                 break;
                             }
-                            data_Draw = new Data_Draw(data);
 
-                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00"));
-                            Acc2JI(data, ref data_Draw,
+                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {data.OriginTime} となっています。例:2024/01/01 00:00:00", true, data.OriginTime.ToString()));
+                            Acc2JI(data, out var data_Draw_tmp,
                                 startT2,
-                                startT2.AddSeconds(double.Parse(ConAsk($"計算開始日時から終了までの時間(秒)を入力してください。例:300"))),
-                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算間隔(秒、小数可)を入力してください。例1:1 例2:0.5"))),
-                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算秒数(秒、小数可)を入力してください。基本は1分です。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:60"))));
+                                startT2.AddSeconds(int.Parse(ConAsk($"計算開始日時から終了までの時間(秒)を入力してください。例:300", true, "300"))),
+                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算間隔(秒、小数可)を入力してください。例1:1 例2:0.5", true, "1"))),
+                                TimeSpan.FromSeconds(double.Parse(ConAsk($"計算秒数(秒、小数可)を入力してください。基本は1分ですが時間がかかります。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:60", true, "60"))));
+                            data_Draw = data_Draw_tmp;
                             break;
                         case "3":
                             if (data_Draw == null)
@@ -175,24 +176,41 @@ namespace KmoniReproducer
                             }
                             var dir_out = $"output\\shindo\\{data_Draw.OriginTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
                             Directory.CreateDirectory(dir_out);
-                            File.WriteAllText($"{dir_out}\\_param.json", $"{{\"OriginTime\":\"{data_Draw.OriginTime}\",\"HypoLat\":{data_Draw.HypoLat},\"HypoLon\":{data_Draw.HypoLon},\"CalPeriod\":\"{data_Draw.CalPeriod}\"}}");
+                            File.WriteAllText($"{dir_out}\\_param.json",
+                                "{{" +
+                                $"\"OriginTime\":\"{data_Draw.OriginTime}\"," +
+                                $"\"HypoLat\":{data_Draw.HypoLat}," +
+                                $"\"HypoLon\":{data_Draw.HypoLon}," +
+                                $"\"CalPeriod\":\"{data_Draw.CalPeriod}," +
+                                $"\"FullCalPeriodSec\":\"{data_Draw.FullCalPeriodSec}\"" +
+                                "}}");
                             foreach (var obsData in data_Draw.Datas_Draw)
                                 File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
                             ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
                             break;
                         case "4":
                             var dir_in = ConAsk("出力したフォルダを入力してください。").Replace("\"", "");
+                            if (!File.Exists($"{dir_in}\\_param.json"))
+                            {
+                                ConWrite($"パラメータファイル({dir_in}\\_param.json)が見つかりません。", ConsoleColor.Red);
+                                break;
+                            }
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
                             var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
                             var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
-#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
 #pragma warning disable CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
-                            data_Draw = new Data_Draw(DateTime.Parse(paramNode["OriginTime"].ToString()), double.Parse(paramNode["HypoLat"].ToString()), double.Parse(paramNode["HypoLon"].ToString()), TimeSpan.Parse((string?)paramNode["CalPeriod"] ?? "00:00:00"))
+#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
+                            data_Draw = new Data_Draw()
                             {
-                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(x => x.StationName, y => y)
+                                OriginTime = DateTime.Parse(paramNode["OriginTime"]?.ToString() ?? DateTime.MinValue.ToString()),
+                                HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
+                                HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
+                                CalPeriod = TimeSpan.Parse((string?)paramNode["CalPeriod"] ?? "00:00:00"),
+                                FullCalPeriodSec = int.Parse((string?)paramNode["FullCalPeriod"] ?? "-1"),
+                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v)
                             };
-#pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
+#pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                             break;
                         case "5":
@@ -211,43 +229,43 @@ namespace KmoniReproducer
 
                             config_map = new Config_Map
                             {
-                                MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080")),
-                                LatSta = double.Parse(ConAsk("緯度の始点(地図の下端)を入力してください。例:22.5")),
-                                LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5")),
-                                LonSta = double.Parse(ConAsk("経度の始点(地図の左端)を入力してください。例:122.5")),
-                                LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5")),
+                                MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080", true, "1080")),
+                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は{data_Draw.HypoLat}となっています。", true, "22.5")),
+                                LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5", true, "47.5")),
+                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は{data_Draw.HypoLon}となっています。", true, "122.5")),
+                                LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5", true, "147.5")),
                                 MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。例:11\n" +
                                 "> 11.地震情報／都道府県等(軽量)\n" +
                                 "> 12.地震情報／都道府県等(詳細)\n" +
                                 "> 21.地震情報／細分区域(軽量)\n" +
                                 "> 22.地震情報／細分区域(詳細)\n" +
                                 "> 31.市町村等（地震津波関係）(軽量)\n" +
-                                "> 32.市町村等（地震津波関係）(詳細)"))
+                                "> 32.市町村等（地震津波関係）(詳細)", true, "11"))
                             };
-                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {data_Draw.OriginTime} となっています。例:2024/01/01 00:00:00"));
+                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。発生日時は {(data_Draw.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.OriginTime)} となっています。例:2024/01/01 00:00:00", data_Draw.OriginTime != DateTime.MinValue, data_Draw.OriginTime.ToString()));
                             config_draw = new Config_Draw
                             {
                                 StartTime = startT5,
-                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。例:300"))),
-                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {calSpan.TotalSeconds} のようです。例1:1 例2:0.5"))),
-                                ObsSize = int.Parse(ConAsk("観測点サイズを入力してください。例:7")),
-                                DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y",
-                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true) == "y"
+                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.FullCalPeriodSec == -1 ? "--" : data_Draw.FullCalPeriodSec)} となっています。 例:300", data_Draw.FullCalPeriodSec != -1, data_Draw.FullCalPeriodSec))),
+                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds))),
+                                ObsSize = int.Parse(ConAsk("観測点サイズ(マップサイズ1080での相対値)を入力してください。例:7 (←は全国表示で推奨)", true, "7")),
+                                DrawObsName = ConAsk("観測点円の右に観測点名を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true, "n") == "y",
+                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示する場合 y と入力してください。※地図を拡大しない場合非推奨です。", true, "n") == "y"
                             };
 
                             if (!File.Exists("config-color.json"))
-                                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color/*, serializeIntend*/));
+                                File.WriteAllText("config-color.json", JsonSerializer.Serialize(config_color, serializeIntend));
                             _ = ConAsk("色をconfig-color.jsonで設定してください。エンターキーを押すと描画を開始します。", true);
                             config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();
 
                             Draw(data_Draw);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
-                                "1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
-                                "3fps: ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
-                                "5fps: ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
-                                "10fps: ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
-                                "30fps: ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
-                                "60fps: ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
+                                "- 1fps: ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
+                                "- 3fps: ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
+                                "- 5fps: ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
+                                "- 10fps: ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
+                                "- 30fps: ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
+                                "- 60fps: ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -266,22 +284,6 @@ namespace KmoniReproducer
                 {
                     ConWrite("[Main]", ex);
                 }
-
-            //var data2 = GetDataFromJMAcsv();
-            //var drawData = new Data_Draw();
-            //Acc2JI(data2, ref drawData);
-
-            /*
-
-            var data = GetDataFromKNETASCII();
-            // var data2 = GetDataFromJMAcsv();
-            //data.AddObsDatas(data2);
-
-            var drawData = new Data_Draw();
-            Acc2JI(data, ref drawData);
-            */
-
-            Console.WriteLine();
         }
 
         /// <summary>
@@ -294,7 +296,7 @@ namespace KmoniReproducer
             var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
             if (targzFiles.Length != 0)
             {
-                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true) == "y";
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true, "n") == "y";
                 if (ok)
                     OpenTarGz(dir);
             }
@@ -342,7 +344,7 @@ namespace KmoniReproducer
             var targzFiles = Directory.EnumerateFiles(dir, "*.tar.gz", SearchOption.AllDirectories).ToArray();
             if (targzFiles.Length != 0)
             {
-                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true) == "y";
+                var ok = ConAsk(".tar.gzファイルが見つかりました。展開しますか？(y/n)", true, "n") == "y";
                 if (ok)
                     OpenTarGz(dir);
             }
@@ -383,18 +385,7 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// 加速度から震度を求めます。<paramref name="drawData"/>内部に保存されます。
-        /// </summary>
-        /// <remarks>開始時刻:発生時刻　終了時刻:発生時刻+3分　描画間隔:1秒</remarks>
-        /// <param name="data">加速度データ</param>
-        /// <param name="drawData">描画用データ(ref)</param>
-        public static void Acc2JI(Data data, ref Data_Draw drawData)
-        {
-            Acc2JI(data, ref drawData, data.OriginTime, data.OriginTime.AddMinutes(3), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
-        }
-
-        /// <summary>
-        /// 加速度から震度を求めます。<paramref name="drawData"/>内部に保存されます。
+        /// 加速度から震度を求めます。
         /// </summary>
         /// <param name="data">加速度データ</param>
         /// <param name="drawData">描画用データ(ref)</param>
@@ -402,17 +393,22 @@ namespace KmoniReproducer
         /// <param name="endTime">終了時刻</param>
         /// <param name="calSpan">計算間隔</param>
         /// <param name="calPeriod">計算時間(通常1分)</param>
-        public static void Acc2JI(Data data, ref Data_Draw drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan, TimeSpan calPeriod)
+        public static void Acc2JI(Data data, out Data_Draw? drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan, TimeSpan calPeriod)
         {
             if (data.ObsDatas == null)
             {
                 ConWrite("加速度データが存在しません。", ConsoleColor.Red);
+                drawData = null;
                 return;
             }
+            drawData = new Data_Draw(data)
+            {
+                CalPeriod = calPeriod,
+                FullCalPeriodSec = (int)(endTime - startTime).TotalSeconds
+            };
 
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 震度計算中...", ConsoleColor.Blue);
-            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff}   dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
-            drawData.CalPeriod = calPeriod;
+            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff} span:{calSpan:mm\\:ss\\.ff}  dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
             var total2 = data.ObsDatas.Length / 3d;
@@ -429,8 +425,8 @@ namespace KmoniReproducer
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
                 var lastCalTime = DateTime.Now - calStartT2;
-                var text1 = $"now:{drawTime:HH:mm:ss.ff}->{nowP}/{total}({nowP / total * 100:F2}％) ";
-                var text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))}~" +
+                var text1 = $"└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
+                var text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))} ~ " +
                     $"{(eta1 >= TimeSpan.FromHours(1) ? eta2.TotalHours.ToString("0") + eta2.ToString("\\:mm\\:ss") : eta2.TotalMinutes.ToString("0") + eta2.ToString("\\:ss\\.ff"))} " +
                     $"(last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString("F2") : lastCalTime.TotalMilliseconds.ToString("F2") + "m")}s valid:{validObsCount})";
                 calStartT2 = DateTime.Now;
@@ -439,8 +435,8 @@ namespace KmoniReproducer
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     nowP2++;
-
                     ConWrite(text1 + $"[data:{(nowP2 == total2 ? "" : " ")}{nowP2 / total2 * 100:00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
+                    ConsoleClearRight();
 
                     var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
                     var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
@@ -531,18 +527,27 @@ namespace KmoniReproducer
         /// </summary>
         /// <param name="message">表示するメッセージ</param>
         /// <param name="allowNull">空文字入力を許容するか</param>
+        /// <param name="defaultValue"><paramref name="allowNull"/>がtrueの時、空文字入力の時に返す値 入力時確認用表示を行います。nullにすると何も表示しません(""を返します)。</param>
         /// <returns>入力された文字列</returns>
-        public static string ConAsk(string message, bool allowNull = false)
+        public static string ConAsk(string message, bool allowNull = false, string? defaultValue = null)
         {
             ConWrite(message);
         retry:
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = ConsoleColor.Cyan;
             var ans = Console.ReadLine();
             if (allowNull)
-                return ans ?? "";
+            {
+                if (defaultValue != null)
+                {
+                    Console.SetCursorPosition(0, Console.CursorTop - 1);
+                    ConWrite($"(\"{defaultValue}\"を自動入力しました)", ConsoleColor.Yellow);
+                }
+                return string.IsNullOrEmpty(ans) ? defaultValue ?? "" : ans;
+            }
             else if (string.IsNullOrEmpty(ans))
             {
-                ConWrite("値を入力してください。" + message);
+                ConWrite("値を入力してください。", ConsoleColor.Red, false);
+                ConWrite(message);
                 goto retry;
             }
             else
@@ -608,6 +613,17 @@ namespace KmoniReproducer
             Console.SetCursorPosition(0, currentLine);
             Console.Write(new string(' ', Console.WindowWidth));
             Console.SetCursorPosition(0, currentLine);
+        }
+
+        /// <summary>
+        /// コンソールの現在の行の右をクリアします(\rで上書きするとき用)。
+        /// </summary>
+        public static void ConsoleClearRight()
+        {
+            var currentLine = Console.CursorTop;
+            var currentLeft = Console.CursorLeft;
+            Console.Write(new string(' ', Console.WindowWidth - currentLeft));
+            Console.SetCursorPosition(currentLeft, currentLine);
         }
     }
 }

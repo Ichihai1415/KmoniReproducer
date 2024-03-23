@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KmoniReproducer
 {
@@ -108,6 +109,7 @@ namespace KmoniReproducer
             var total = (int)((config_draw.EndTime - config_draw.StartTime) / config_draw.DrawSpan);
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
+            ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
 
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
@@ -118,7 +120,8 @@ namespace KmoniReproducer
                     (eta1, eta2) = (eta2, eta1);
                 if (nowP % 100 == 0)
                     GC.Collect();
-                ConWrite($"\r now:{drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...", ConsoleColor.Green, false);
+                ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
+                ConsoleClearRight();
                 calStartT2 = DateTime.Now;
 
                 var img = new Bitmap(basemap);
@@ -169,6 +172,7 @@ namespace KmoniReproducer
                 g.Dispose();
                 img.Dispose();
             }
+            ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 描画完了", ConsoleColor.Blue);
             ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
 #endif
         }
@@ -543,7 +547,9 @@ namespace KmoniReproducer
         public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var colorString = reader.GetString();
+#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
             var argbValues = colorString.Split(',');
+#pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
             return Color.FromArgb(int.Parse(argbValues[0]), int.Parse(argbValues[1]), int.Parse(argbValues[2]), int.Parse(argbValues[3]));
         }
 

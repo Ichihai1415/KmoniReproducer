@@ -114,22 +114,22 @@ namespace KmoniReproducer
         /// <summary>
         /// 発生時刻
         /// </summary>
-        public DateTime OriginTime { get; set; }
+        public DateTime OriginTime { get; set; } = DateTime.MinValue;
 
         /// <summary>
         /// 震源緯度
         /// </summary>
-        public double HypoLat { get; set; }
+        public double HypoLat { get; set; } = 0;
 
         /// <summary>
         /// 震源経度
         /// </summary>
-        public double HypoLon { get; set; }
+        public double HypoLon { get; set; } = 0;
 
         /// <summary>
         /// 観測データの配列
         /// </summary>
-        public ObsData[]? ObsDatas { get; set; }
+        public ObsData[]? ObsDatas { get; set; } = null;
 
         /// <summary>
         /// 観測データ
@@ -247,12 +247,12 @@ namespace KmoniReproducer
             /// <summary>
             /// 観測点緯度
             /// </summary>
-            public double StationLat { get; set; }
+            public double StationLat { get; set; } = 0;
 
             /// <summary>
             /// 観測点経度
             /// </summary>
-            public double StationLon { get; set; }
+            public double StationLon { get; set; } = 0;
 
             /// <summary>
             /// 記録開始時刻
@@ -283,6 +283,11 @@ namespace KmoniReproducer
     public class Data_Draw
     {
         /// <summary>
+        /// Data_Drawを初期化します。
+        /// </summary>
+        public Data_Draw() { }
+
+        /// <summary>
         /// DataをData_Drawに変換します。
         /// </summary>
         /// <remarks>震度は<c>AddInt</c>を使用して追加する必要があります。</remarks>
@@ -292,20 +297,6 @@ namespace KmoniReproducer
             OriginTime = data.OriginTime;
             HypoLat = data.HypoLat;
             HypoLon = data.HypoLon;
-        }
-
-        /// <summary>
-        /// 各パラメータからData_Drawを初期化します。
-        /// </summary>
-        /// <param name="originTime">発生時刻</param>
-        /// <param name="hypoLat">震源緯度</param>
-        /// <param name="hypoLon">震源経度</param>
-        public Data_Draw(DateTime originTime, double hypoLat, double hypoLon, TimeSpan? calPeriod = null)
-        {
-            OriginTime = originTime;
-            HypoLat = hypoLat;
-            HypoLon = hypoLon;
-            CalPeriod = calPeriod ?? TimeSpan.Zero;
         }
 
         /// <summary>
@@ -324,22 +315,27 @@ namespace KmoniReproducer
         /// <summary>
         /// 発生時刻
         /// </summary>
-        public DateTime OriginTime { get; set; }
+        public DateTime OriginTime { get; set; } = DateTime.MinValue;
 
         /// <summary>
         /// 震源緯度
         /// </summary>
-        public double HypoLat { get; set; }
+        public double HypoLat { get; set; } = 0;
 
         /// <summary>
         /// 震源経度
         /// </summary>
-        public double HypoLon { get; set; }
+        public double HypoLon { get; set; } = 0;
 
         /// <summary>
         /// 震度計算時間(通常1分)
         /// </summary>
-        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;//ただの初期値、計算時に変える
+        public TimeSpan CalPeriod { get; set; } = TimeSpan.Zero;//初期値 計算時に変える
+
+        /// <summary>
+        /// 全計算期間(終了時刻-開始時刻)
+        /// </summary>
+        public int FullCalPeriodSec { get; set; } = -1;//初期値 計算時に変える
 
         /// <summary>
         /// 観測点のデータのリスト
@@ -376,12 +372,12 @@ namespace KmoniReproducer
             /// <summary>
             /// 観測点緯度
             /// </summary>
-            public double StationLat { get; set; }
+            public double StationLat { get; set; } = 0;
 
             /// <summary>
             /// 観測点経度
             /// </summary>
-            public double StationLon { get; set; }
+            public double StationLon { get; set; } = 0;
 
             /// <summary>
             /// 時刻ごとの震度
