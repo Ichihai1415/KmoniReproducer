@@ -415,9 +415,10 @@ namespace KmoniReproducer
             drawData.CalPeriod = calPeriod;
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
-            var total2 = (double)data.ObsDatas.Length / 3;
+            var total2 = data.ObsDatas.Length / 3d;
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
+            var validObsCount = 0;
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
             {
                 nowP++;
@@ -427,14 +428,19 @@ namespace KmoniReproducer
                 var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
                 if (eta1 > eta2)
                     (eta1, eta2) = (eta2, eta1);
-                var text1 = $"\r now:{drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / total * 100:F2}％) ";
-                var text2 = $"  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last cal:{(DateTime.Now - calStartT2).TotalMilliseconds}ms) ...";
+                var lastCalTime = DateTime.Now - calStartT2;
+                var text1 = $"now:{drawTime:HH:mm:ss.ff}->{nowP}/{total}({nowP / total * 100:F2}％) ";
+                var text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))}~" +
+                    $"{(eta1 >= TimeSpan.FromHours(1) ? eta2.TotalHours.ToString("0") + eta2.ToString("\\:mm\\:ss") : eta2.TotalMinutes.ToString("0") + eta2.ToString("\\:ss\\.ff"))} " +
+                    $"(last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString("F2") : lastCalTime.TotalMilliseconds.ToString("F2") + "m")}s valid:{validObsCount})";
                 calStartT2 = DateTime.Now;
                 var nowP2 = 0;
+                var validObsCount_tmp = 0;
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
                     nowP2++;
-                    ConWrite(text1 + $"[data:{Math.Min(nowP2 / total2 * 100, 99.99):00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
+
+                    ConWrite(text1 + $"[data:{(nowP2 == total2 ? "" : " ")}{nowP2 / total2 * 100:00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
 
                     var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
                     var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
@@ -501,7 +507,9 @@ namespace KmoniReproducer
                     drawData.AddInt(data1, drawTime, ji);
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
+                    validObsCount_tmp++;
                 }
+                validObsCount = validObsCount_tmp;
             }
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 震度計算完了", ConsoleColor.Blue);
         }
@@ -589,6 +597,17 @@ namespace KmoniReproducer
                 Console.WriteLine(text);
             else
                 Console.Write(text);
+        }
+
+        /// <summary>
+        /// コンソールの現在の行をクリアします。
+        /// </summary>
+        public static void ConsoleClear1Line()
+        {
+            var currentLine = Console.CursorTop;
+            Console.SetCursorPosition(0, currentLine);
+            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(0, currentLine);
         }
     }
 }
