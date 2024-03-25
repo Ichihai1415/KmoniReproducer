@@ -333,8 +333,8 @@ namespace KmoniReproducer
         public void AddInt(Data.ObsData obsData, DateTime intTime, double jInt)
         {
             if (!Datas_Draw.ContainsKey(obsData.StationName))
-                Datas_Draw.Add(obsData.StationName, new ObsDataD(obsData));
-            Datas_Draw[obsData.StationName].TimeInt.Add(intTime, jInt);
+                Datas_Draw[obsData.StationName] = new ObsDataD(obsData);
+            Datas_Draw[obsData.StationName].TimeInt[intTime] = jInt;
         }
 
         /// <summary>

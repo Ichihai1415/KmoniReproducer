@@ -109,8 +109,24 @@ namespace KmoniReproducer
             ConWrite("【注意/お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
                 "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
                 "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
+            Thread.Sleep(1000);
             Data? data = null;
             Data_Draw? data_Draw = null;
+
+#if false
+
+            var files_debug = Directory.EnumerateFiles(@"C:\Ichihai1415\extract\20240101161000-a", "*", SearchOption.AllDirectories).Where(f => f.EndsWith(".NS") || f.EndsWith(".EW") || f.EndsWith(".UD") || f.EndsWith(".NS2") || f.EndsWith(".EW2") || f.EndsWith(".UD2")).ToArray();
+            var data_debug = KNET_ASCII2Data(files_debug);
+            Acc2JI(data_debug, out Data_Draw? drawData_debug, new DateTime(2024, 1, 1, 16, 10, 0), new DateTime(2024, 1, 1, 16, 14, 0), new TimeSpan(0, 0, 1), new TimeSpan(0, 1, 0));
+            return;
+
+#elif false
+            var files_debug = Directory.EnumerateFiles(@"D:\Ichihai1415\data\kyoshin\raw\20110311144600", "*", SearchOption.AllDirectories).Where(f => f.EndsWith(".NS") || f.EndsWith(".EW") || f.EndsWith(".UD") || f.EndsWith(".NS2") || f.EndsWith(".EW2") || f.EndsWith(".UD2")).ToArray();
+            var data_debug = KNET_ASCII2Data(files_debug);
+            Acc2JI(data_debug, out Data_Draw? drawData_debug, new DateTime(2011, 3, 11, 14, 46, 0), new DateTime(2011, 03, 11, 14, 56, 0), new TimeSpan(0, 0, 0, 0, 100), new TimeSpan(0, 1, 0));
+            return;
+#endif
+
             while (true)
                 try
                 {
@@ -185,7 +201,7 @@ namespace KmoniReproducer
                                 $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}" +
                                 "}");
                             foreach (var obsData in data_Draw.Datas_Draw)
-                                File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));
+                                File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));//観測点名によっては失敗するかも
                             ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
                             break;
                         case "4":
@@ -327,7 +343,7 @@ namespace KmoniReproducer
             DateTime? originTime_tmp = null;
             double? hypoLat_tmp = null;
             double? hypoLon_tmp = null;
-            if (ConAsk("地震データ(発生日時、震源緯度経度)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合それが優先されます。", true, "n") == "y")
+            if (ConAsk("地震データ(発生日時、震源緯度経度)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合あればそれが優先されます。", true, "n") == "y")
             {
                 originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
                 hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
@@ -398,13 +414,15 @@ namespace KmoniReproducer
         /// 加速度から震度を求めます。
         /// </summary>
         /// <param name="data">加速度データ</param>
-        /// <param name="drawData">描画用データ(ref)</param>
+        /// <param name="drawData">描画用データ(out)</param>
         /// <param name="startTime">開始時刻</param>
         /// <param name="endTime">終了時刻</param>
         /// <param name="calSpan">計算間隔</param>
         /// <param name="calPeriod">計算時間(通常1分)</param>
-        public static void Acc2JI(Data data, out Data_Draw? drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan, TimeSpan calPeriod)
+        /// <param name="calTimeBefore">先に予想時間用計算をするか</param>
+        public static void Acc2JI(Data? data, out Data_Draw? drawData, DateTime startTime, DateTime endTime, TimeSpan calSpan, TimeSpan calPeriod, bool calTimeBefore = true)
         {
+            data ??= new Data();//nullの時下で止める
             if (data.ObsDatas == null)
             {
                 ConWrite("加速度データが存在しません。", ConsoleColor.Red);
@@ -418,39 +436,77 @@ namespace KmoniReproducer
                 TotalCalPeriodSec = (int)(endTime - startTime).TotalSeconds
             };
 
+            if (calTimeBefore)
+            {
+                ConWrite($"{DateTime.Now:HH:mm:ss.ffff} データ量確認中...", ConsoleColor.Blue);
+                List<int> totalValidDataCount = [];
+                for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
+                {
+                    var validDataCount_tmp = 0;
+                    foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
+                    {
+                        var startIndex_tmp = (int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000);//参照不可能(計算用)
+                        var startIndex = Math.Max(startIndex_tmp, 0);
+                        var endIndex_tmp = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000);//参照不可能(計算用)
+                        var endIndex = Math.Min(Math.Max(endIndex_tmp, 0), data1.Accs.Length) - 1;
+                        var count = endIndex - startIndex + 1;
+                        if (count < 0.3 * data1.SamplingFreq)
+                            continue;
+                        validDataCount_tmp += count;
+                    }
+                    totalValidDataCount.Add(validDataCount_tmp);
+                }
+                var validDataCountMax = totalValidDataCount.Max();
+                ConWrite("\n");//─ │ ┌ ┐ └ ┘
+                Console.WindowWidth = Math.Max(Console.WindowWidth, 105);//なんか変わらない
+                Console.WriteLine("100│\n 90│\n 80│\n 70│\n 60│\n 50│\n 40│\n 30│\n 20│\n 10│\n" +
+                    "  0└─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴────────── \n" +
+                    "(%)0        10        20        30        40        50        60        70        80        90        100\n");
+                var endLine = Console.CursorTop - 3;//描画エリア最後の所
+                Console.ForegroundColor = ConsoleColor.Green;
+                for (var i = 1; i < 101; i++)
+                {
+                    var left = i + 3;
+                    var j = totalValidDataCount.Count * i / 100 - 1;
+                    var validDataCount_ = totalValidDataCount[j];
+                    var value = validDataCount_ * 100 / validDataCountMax;//最高に対する割合
+                    var y = (int)Math.Round(value / 10d, MidpointRounding.AwayFromZero);
+                    //var y = (int)Math.Round(i / 10d, MidpointRounding.AwayFromZero);
+                    Console.SetCursorPosition(left, endLine - y);
+                    Console.Write("*");
+                }
+                Console.SetCursorPosition(0, endLine + 3);
+                ConWrite("<データ数の分布> 縦軸が処理データ数が最大となるものを100%にしたときの割合、横軸がデータの計算の割合(100%で終了)\n計算時間はおおむねこのグラフのように変化します(縦軸の値が大きいほど時間がかかる)。参考にしてください。");
+            }
+
+            //return;
+
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 震度計算中...", ConsoleColor.Blue);
-            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff} span:{calSpan:mm\\:ss\\.ff}  dataCount:{data.ObsDatas.Length / 3}", ConsoleColor.Green);
+            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff} period:{calPeriod:mm\\:ss\\.ff}  dataCount:{data.ObsDatas.Length / 3}\n", ConsoleColor.Green);
+            Console.SetCursorPosition(0, Console.CursorTop - 1);
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
             var total2 = data.ObsDatas.Length / 3d;
             var calStartT = DateTime.Now;
             var calStartT2 = DateTime.Now;
             var validObsCount = 0;
+            var text1 = $"\r└ {startTime:HH:mm:ss.ff} ";
+            var text2 = "";
             for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
             {
-                nowP++;
                 if (nowP % 10 == 0)
                     GC.Collect();
                 var eta1 = (DateTime.Now - calStartT2) * (total - nowP);
-                var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
-                if (eta1 > eta2)
-                    (eta1, eta2) = (eta2, eta1);
                 var lastCalTime = DateTime.Now - calStartT2;
-                var text1 = $"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
-                var text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))} ~ " +
-                    $"{(eta1 >= TimeSpan.FromHours(1) ? eta2.TotalHours.ToString("0") + eta2.ToString("\\:mm\\:ss") : eta2.TotalMinutes.ToString("0") + eta2.ToString("\\:ss\\.ff"))} " +
-                    $"(last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString("F2") : lastCalTime.TotalMilliseconds.ToString("F2") + "m")}s valid:{validObsCount})";
                 calStartT2 = DateTime.Now;
                 var nowP2 = 0;
                 var validObsCount_tmp = 0;
                 foreach (var data1 in data.ObsDatas.Where(x => x.DataDir == "N-S"))
                 {
-                    nowP2++;
-                    ConWrite(text1 + $"[data:{(nowP2 == total2 ? "" : " ")}{nowP2 / total2 * 100:00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
-                    ConsoleClearRight();
-
-                    var startIndex = Math.Max((int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000), 0);
-                    var endIndex = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000) - 1;
+                    var startIndex_tmp = (int)((drawTime - calPeriod + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000);//参照不可能(計算用)
+                    var startIndex = Math.Max(startIndex_tmp, 0);
+                    var endIndex_tmp = (int)((drawTime + calSpan - data1.RecordTime).TotalMilliseconds * data1.SamplingFreq / 1000);//参照不可能(計算用)
+                    var endIndex = Math.Min(Math.Max(endIndex_tmp, 0), data1.Accs.Length) - 1;
                     var count = endIndex - startIndex + 1;
                     //st 00:00:05  span 0.25  draw 00:00:15
                     //=>  00:00:05.25 <= data < 00:00:15.25  10.25sec (*max:60sec)
@@ -461,7 +517,7 @@ namespace KmoniReproducer
                     var data2Ac = data23[1].Accs.Skip(startIndex).Take(count).ToArray();
                     var data3Ac = data23[2].Accs.Skip(startIndex).Take(count).ToArray();
                     if (data1Ac.Length < 0.3 * data1.SamplingFreq)
-                        continue;
+                        goto skip;
                     //File.WriteAllText("data1Ac-all.txt", string.Join('\n', data1.Accs));
                     data1Ac = data1Ac.Select(rawAcc => rawAcc - data1Ac.Average()).ToArray();
                     data2Ac = data2Ac.Select(rawAcc => rawAcc - data2Ac.Average()).ToArray();
@@ -514,10 +570,29 @@ namespace KmoniReproducer
                     drawData.AddInt(data1, drawTime, ji);
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
-                    validObsCount_tmp++;
+
+                    validObsCount_tmp++;//有効だったものだけ合わせるから↓にはいらない
+                skip:
+                    nowP2++;
+                    ConWrite(text1 + $"[data:{(nowP2 == total2 ? "" : " ")}{nowP2 / total2 * 100:00.00}% of {total2}]" + text2, ConsoleColor.Green, false);
+                    ConsoleClearRight();
                 }
                 validObsCount = validObsCount_tmp;
+                nowP++;
+                text1 = $"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
+                text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))}" +
+                    $" (last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString() : lastCalTime.TotalMilliseconds.ToString() + "m")}s validData:{validObsCount})";
+
+                Console.SetCursorPosition(0, Console.CursorTop + 1);
+                var proP = (int)(nowP / total * 100);
+                ConWrite("   [", false);
+                ConWrite(new string('=', proP), ConsoleColor.Green, false);
+                ConWrite(new string(' ', 100 - proP), ConsoleColor.Green, false);
+                ConWrite("]", false);
+                Console.SetCursorPosition(0, Console.CursorTop - 1);
             }
+            ConWrite(text1 + $"[data:100.00% of {total2}]" + text2, ConsoleColor.Green);
+
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 震度計算完了", ConsoleColor.Blue);
         }
 

@@ -117,18 +117,18 @@ namespace KmoniReproducer
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
                 nowP++;
-                var eta1 = (DateTime.Now - calStartT2) * (total - nowP);
-                var eta2 = (DateTime.Now - calStartT) * (total / nowP) - (DateTime.Now - calStartT);
-                if (eta1 > eta2)
-                    (eta1, eta2) = (eta2, eta1);
-                if (nowP % 100 == 0)
-                    GC.Collect();
-                ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta1.TotalMinutes}:{eta1:ss\\.ff}~{(int)eta2.TotalMinutes}:{eta2:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
-                ConsoleClearRight();
-                calStartT2 = DateTime.Now;
+                if (nowP % 10 == 0)
+                {
+                    var eta = (DateTime.Now - calStartT2) / 10d * (total - nowP);
+                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
+                    ConsoleClearRight();
+                    calStartT2 = DateTime.Now;
+                    if (nowP % 100 == 0)
+                        GC.Collect();
+                }
 
-                var img = new Bitmap(basemap);
-                var g = Graphics.FromImage(img);
+                using var img = new Bitmap(basemap);
+                using var g = Graphics.FromImage(img);
 
                 var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
                 var infotextS = new List<double>();
@@ -172,8 +172,6 @@ namespace KmoniReproducer
                 g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS - mdsize.Width, mapS - mdsize.Height);
                 var savePath = $"{saveDir}\\{nowP:d4}.png";
                 img.Save(savePath, ImageFormat.Png);
-                g.Dispose();
-                img.Dispose();
             }
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 描画完了", ConsoleColor.Blue);
             ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
