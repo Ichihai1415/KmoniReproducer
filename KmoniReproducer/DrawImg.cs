@@ -143,68 +143,69 @@ namespace KmoniReproducer
                 var mapLonSta = config_map.LonSta;
                 var mapLonEnd = config_map.LonEnd;
 
-                if (config_draw.AutoZoomMin != -9)//min有効
-                {
-                    var viewAreaIntsM = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin);
-                    if (viewAreaIntsM.Any())//minあるdifまだ
+                if (sortedInts.Any())
+                    if (config_draw.AutoZoomMin != -9)//min有効
                     {
-                        if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
+                        var viewAreaIntsM = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin);
+                        if (viewAreaIntsM.Any())//minあるdifまだ
+                        {
+                            if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
+                            {
+                                var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                                var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                                if (viewAreaIntsD.Any())//minあるdifある
+                                {
+                                    mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
+                                    mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
+                                    mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
+                                    mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
+                                }
+                            }
+                            else//minあるdifない(そのまま)
+                            {
+                                mapLatSta = viewAreaIntsM.Min(x => x.StationLat);
+                                mapLatEnd = viewAreaIntsM.Max(x => x.StationLat);
+                                mapLonSta = viewAreaIntsM.Min(x => x.StationLon);
+                                mapLonEnd = viewAreaIntsM.Max(x => x.StationLon);
+                            }
+                            AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
+                            basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                        }
+                        else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
                         {
                             var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
-                            var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
-                            if (viewAreaIntsD.Any())//minあるdifある
+                            var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                            if (viewAreaIntsD.Any())//minないdifある
                             {
                                 mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
                                 mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
                                 mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
                                 mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
+                                AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
+                                basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
                             }
+                            else//minないdifない
+                                basemap = Draw_Map();
                         }
-                        else//minあるdifない(そのまま)
-                        {
-                            mapLatSta = viewAreaIntsM.Min(x => x.StationLat);
-                            mapLatEnd = viewAreaIntsM.Max(x => x.StationLat);
-                            mapLonSta = viewAreaIntsM.Min(x => x.StationLon);
-                            mapLonEnd = viewAreaIntsM.Max(x => x.StationLon);
-                        }
-                        AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
-                        basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                        else//minないdif無効
+                            basemap = Draw_Map();
                     }
-                    else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
+                    else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
                     {
                         var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
-                        var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
-                        if (viewAreaIntsD.Any())//minないdifある
+                        var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) > maxintMdiff);
+                        if (viewAreaIntD.Any())//min無効+difある
                         {
-                            mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
-                            mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
-                            mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
-                            mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
+                            mapLatSta = viewAreaIntD.Min(x => x.StationLat);
+                            mapLatEnd = viewAreaIntD.Max(x => x.StationLat);
+                            mapLonSta = viewAreaIntD.Min(x => x.StationLon);
+                            mapLonEnd = viewAreaIntD.Max(x => x.StationLon);
                             AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
                             basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
                         }
-                        else//minないdifない
+                        else//min無効+ない
                             basemap = Draw_Map();
                     }
-                    else//minないdif無効
-                        basemap = Draw_Map();
-                }
-                else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
-                {
-                    var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
-                    var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) > maxintMdiff);
-                    if (viewAreaIntD.Any())//min無効+difある
-                    {
-                        mapLatSta = viewAreaIntD.Min(x => x.StationLat);
-                        mapLatEnd = viewAreaIntD.Max(x => x.StationLat);
-                        mapLonSta = viewAreaIntD.Min(x => x.StationLon);
-                        mapLonEnd = viewAreaIntD.Max(x => x.StationLon);
-                        AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
-                        basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
-                    }
-                    else//min無効+ない
-                        basemap = Draw_Map();
-                }
 
                 var zoomW = mapS / (mapLonEnd - mapLonSta);
                 var zoomH = mapS / (mapLatEnd - mapLatSta);//既定は43.2
@@ -263,7 +264,7 @@ namespace KmoniReproducer
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 描画完了", ConsoleColor.Blue);
             ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
 
-            remake:
+        remake:
             if (int.TryParse(ConAsk("ffmpegで動画を作成する場合、fpsを入力してください。複数作成したい場合は作成後またこの表示が出るので毎回入力してください。ffmpeg.exeのパスが通っている必要があります。\n数値への変換に失敗したら終了します。ミス防止のため空文字入力はできません。数字以外を何か入力してください。"), out int f))
             {
                 ConWrite($"ffmpeg -framerate {f} -i \"{saveDir}\\%04d.png\" -vcodec libx264 -pix_fmt yuv420p -r {f} _output_{f}.mp4", ConsoleColor.Green);
