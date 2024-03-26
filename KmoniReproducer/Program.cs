@@ -242,7 +242,19 @@ namespace KmoniReproducer
                             }
                             var calSpanCk = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
                             var calSpan = calSpanCk[1] - calSpanCk[0];
-
+                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.CalStartTime)} となっています。例:2024/01/01 00:00:00", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString()));
+                            config_draw = new Config_Draw
+                            {
+                                StartTime = startT5,
+                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.TotalCalPeriodSec == -1 ? "--" : data_Draw.TotalCalPeriodSec)} となっています。 例:300", data_Draw.TotalCalPeriodSec != -1, data_Draw.TotalCalPeriodSec.ToString()))),
+                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds.ToString()))),
+                                DrawObsName = ConAsk("観測点円の右に観測点名を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y",
+                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y",
+                                AutoZoomMin = int.Parse(ConAsk("<自動ズームの方法は 最小震度,最大震度との差 の2通りあります。対象のものがない場合後に設定する緯度経度の始点終点で描画されます。>\n" +
+                                "最小震度での自動ズームをする場合、範囲に入れる最小震度を入力してください。最大震度との差での対象のものが無ければこの範囲になります。 -9で無効、計測震度に対する値: ~-0.5は-1、-0.5~0.5は0, ... 4.5~5.0(5弱)は5, 5.0~5.5(5強)は6, ...です。例1:-9 例2:(震度4の場合):4", true, "-9")),
+                                AutoZoomMinDif = int.Parse(ConAsk("(描画時刻の)最大震度との差での自動ズームをする場合、範囲に入れる最大震度との差を入力してください。 -9で無効、10以上で全表示です。例1:-9 例2:(最大震度5弱で震度3まで(5弱,4,3)の場合):3", true, "-9")),
+                                Obs_UseIntColor = ConAsk("観測点円の色に強震モニタ色ではなく震度階級別色を利用しますか？(右側では両方描画します) (y/n)", true, "n") == "y"
+                            };
                             config_map = new Config_Map
                             {
                                 MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080", true, "1080")),
@@ -250,23 +262,13 @@ namespace KmoniReproducer
                                 LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5", true, "47.5")),
                                 LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は {(data_Draw.HypoLon == -200d ? "--" : data_Draw.HypoLon)} となっています。", true, "122.5")),
                                 LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5", true, "147.5")),
-                                MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。線の太さは種類ごとに固定なため範囲に応じて変えると良いです。例:11\n" +
+                                MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。線の太さは種類ごとに固定なため範囲に応じて変えると良いです(全国なら11,12、拡大なら21,22,31,32)。例:11\n" +
                                 "> 11.地震情報／都道府県等 (軽量)\n" +
                                 "> 12.地震情報／都道府県等 (詳細)\n" +
                                 "> 21.地震情報／都道府県等 + 地震情報／細分区域 (軽量)\n" +
                                 "> 22.地震情報／都道府県等 + 地震情報／細分区域 (詳細)\n" +
                                 "> 31.地震情報／都道府県等 + 地震情報／細分区域 + 市町村等（地震津波関係） (軽量)\n" +
                                 "> 32.地震情報／都道府県等 + 地震情報／細分区域 + 市町村等（地震津波関係） (詳細)", true, "11"))
-                            };
-                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.CalStartTime)} となっています。例:2024/01/01 00:00:00", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString()));
-                            config_draw = new Config_Draw
-                            {
-                                StartTime = startT5,
-                                EndTime = startT5.AddSeconds(double.Parse(ConAsk($"描画開始日時から終了までの時間(秒)を入力してください。震度計算では {(data_Draw.TotalCalPeriodSec == -1 ? "--" : data_Draw.TotalCalPeriodSec)} となっています。 例:300", data_Draw.TotalCalPeriodSec != -1, data_Draw.TotalCalPeriodSec.ToString()))),
-                                DrawSpan = TimeSpan.FromSeconds(double.Parse(ConAsk($"描画間隔(秒、小数可)を入力してください。震度計算では {(calSpan.TotalSeconds == 0d ? "--" : calSpan.TotalSeconds)} となっています。例1:1 例2:0.5", calSpan.TotalSeconds != 0d, calSpan.TotalSeconds.ToString()))),
-                                ObsSize = int.Parse(ConAsk("観測点サイズ(マップサイズ1080での相対値)を入力してください。例:7 (←は全国表示で推奨)", true, "7")),
-                                DrawObsName = ConAsk("観測点円の右に観測点名を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y",
-                                DrawObsShindo = ConAsk("観測点円の右に観測点震度を表示しますか？(y/n) ※地図を拡大しない場合非推奨です。", true, "n") == "y"
                             };
 
                             if (!File.Exists("config-color.json"))
@@ -579,7 +581,7 @@ namespace KmoniReproducer
                 }
                 validObsCount = validObsCount_tmp;
                 nowP++;
-                text1 = $"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total}({nowP / total * 100:F2}％) ";
+                text1 = $"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / total * 100:F2}％) ";
                 text2 = $" eta:{(eta1 >= TimeSpan.FromHours(1) ? eta1.TotalHours.ToString("0") + eta1.ToString("\\:mm\\:ss") : eta1.TotalMinutes.ToString("0") + eta1.ToString("\\:ss\\.ff"))}" +
                     $" (last:{(lastCalTime >= TimeSpan.FromSeconds(1) ? lastCalTime.TotalSeconds.ToString() : lastCalTime.TotalMilliseconds.ToString() + "m")}s validData:{validObsCount})";
 
@@ -607,6 +609,48 @@ namespace KmoniReproducer
             Array.Copy(srcArray, 0, newArray, 0, srcArray.Length);
             srcArray = newArray;
         }
+
+        /// <summary>
+        /// 画像描画用に緯度・経度を補正します。余白も追加します。
+        /// </summary>
+        /// <param name="latSta">緯度の始点</param>
+        /// <param name="latEnd">緯度の終点</param>
+        /// <param name="lonSta">経度の始点</param>
+        /// <param name="lonEnd">経度の終点</param>
+        public static void AreaCorrect(ref double latSta, ref double latEnd, ref double lonSta, ref double lonEnd)
+        {
+            latSta -= (latEnd - latSta) / 20;//差の1/20余白追加
+            latEnd += (latEnd - latSta) / 20;
+            lonSta -= (lonEnd - lonSta) / 20;
+            lonEnd += (lonEnd - lonSta) / 20;
+            if (latEnd - latSta < 3)//緯度差を最小3に
+            {
+                double correction = (3 - (latEnd - latSta)) / 2d;
+                latSta -= correction;
+                latEnd += correction;
+            }
+            if (lonEnd - lonSta > latEnd - latSta)//大きいほうに合わせる
+            {
+                double correction = ((lonEnd - lonSta) - (latEnd - latSta)) / 2d;
+                latSta -= correction;
+                latEnd += correction;
+            }
+            else// if (LonEnd - LonSta < LatEnd - LatSta)
+            {
+                double correction = ((latEnd - latSta) - (lonEnd - lonSta)) / 2d;
+                lonSta -= correction;
+                lonEnd += correction;
+            }
+            /*//動きまくるのを避ける
+            if (true)
+            {//正のとき用
+                latSta = (int)latSta - 1;
+                latEnd = (int)latEnd + 1;
+                lonSta = (int)lonSta - 1;
+                lonEnd = (int)lonEnd + 1;
+            }*/
+        }
+
 
         /// <summary>
         /// コンソールで入力を求めます。

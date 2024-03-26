@@ -15,7 +15,6 @@ namespace KmoniReproducer
         public static void Draw(Data_Draw drawDatas)
         {
             var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
-            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} マップ描画中...", ConsoleColor.Blue);
             var basemap = Draw_Map();
             var textColor = new SolidBrush(config_color.Text);
 
@@ -37,11 +36,6 @@ namespace KmoniReproducer
             var mapD60p = mapS / 60f + mapS;
             var mapD180 = mapS / 180f;
             var mapD1080 = mapS / 1080f;
-
-            var obsSize = config_draw.ObsSize * mapD1080;
-            var obsSizeHalf = obsSize / 2;
-            var zoomW = mapS / (config_map.LonEnd - config_map.LonSta);
-            var zoomH = mapS / (config_map.LatEnd - config_map.LatSta);
 
             var mdsize = new SizeF();
             var infotextHei = 0f;
@@ -112,7 +106,7 @@ namespace KmoniReproducer
             foreach (var drawData in drawDatas.Datas_Draw.Values)
                 drawData.StationName = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? $"{name} ({drawData.StationName})" : drawData.StationName;
 
-            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} データ描画中...", ConsoleColor.Blue);
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 描画中...", ConsoleColor.Blue);
             ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
@@ -127,17 +121,93 @@ namespace KmoniReproducer
                         GC.Collect();
                 }
 
+                var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
+                var validInts = drawDatas.Datas_Draw.Values.Where(x => x.TimeInt.TryGetValue(drawTime, out double value));
+                var mapLatSta = config_map.LatSta;
+                var mapLatEnd = config_map.LatEnd;
+                var mapLonSta = config_map.LonSta;
+                var mapLonEnd = config_map.LonEnd;
+
+                if (config_draw.AutoZoomMin != -9)//min有効
+                {
+                    var viewAreaIntsM = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin);
+                    if (viewAreaIntsM.Any())//minあるdifまだ
+                    {
+                        if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
+                        {
+                            var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                            var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                            if (viewAreaIntsD.Any())//minあるdifある
+                            {
+                                mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
+                                mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
+                                mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
+                                mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
+                            }
+                        }
+                        else//minあるdifない(そのまま)
+                        {
+                            mapLatSta = viewAreaIntsM.Min(x => x.StationLat);
+                            mapLatEnd = viewAreaIntsM.Max(x => x.StationLat);
+                            mapLonSta = viewAreaIntsM.Min(x => x.StationLon);
+                            mapLonEnd = viewAreaIntsM.Max(x => x.StationLon);
+                        }
+                        AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
+                        basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                    }
+                    else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
+                    {
+                        var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                        var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                        if (viewAreaIntsD.Any())//minないdifある
+                        {
+                            mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
+                            mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
+                            mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
+                            mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
+                            AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
+                            basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                        }
+                        else//minないdifない
+                            basemap = Draw_Map();
+                    }
+                    else//minないdif無効
+                        basemap = Draw_Map();
+                }
+                else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
+                {
+                    var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                    var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) > maxintMdiff);
+                    if (viewAreaIntD.Any())//min無効+difある
+                    {
+                        mapLatSta = viewAreaIntD.Min(x => x.StationLat);
+                        mapLatEnd = viewAreaIntD.Max(x => x.StationLat);
+                        mapLonSta = viewAreaIntD.Min(x => x.StationLon);
+                        mapLonEnd = viewAreaIntD.Max(x => x.StationLon);
+                        AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
+                        basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                    }
+                    else//min無効+ない
+                        basemap = Draw_Map();
+                }
+
+                var zoomW = mapS / (mapLonEnd - mapLonSta);
+                var zoomH = mapS / (mapLatEnd - mapLatSta);//既定は43.2
+                var zoom = Math.Min(zoomW, zoomH);
+
+                var obsSize = (float)(Math.Pow(zoom / 43.2, 0.5) * 7);
+                var obsSizeHalf = obsSize / 2;
+
                 using var img = new Bitmap(basemap);
                 using var g = Graphics.FromImage(img);
 
-                var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
                 var infotextS = new List<double>();
                 var infotextN = new List<string>();
                 var infohead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
                 foreach (var drawData in sortedInts)
                 {
-                    var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
-                    var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
+                    var leftupperX = (float)((drawData.StationLon - mapLonSta) * zoomW) - obsSizeHalf;
+                    var leftupperY = (float)((mapLatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
                     var obsNameEdited = drawData.StationName;
                     var text = config_draw.DrawObsName ? obsNameEdited + " " : "";
                     if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
@@ -180,12 +250,30 @@ namespace KmoniReproducer
 
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
 #pragma warning disable CS8604 // Null 参照引数の可能性があります。
-        public static Bitmap Draw_Map()
+        /// <summary>
+        /// 地図を描画します。緯度経度を指定することができます(指定しない場合設定を参照します)。
+        /// </summary>
+        /// <remarks>事前に補正してください。</remarks>
+        /// <param name="latSta">緯度の始点</param>
+        /// <param name="latEnd">緯度の終点</param>
+        /// <param name="lonSta">経度の始点</param>
+        /// <param name="lonEnd">経度の終点</param>
+        /// <returns>描画した地図(右側情報部分はそのまま)</returns>
+        public static Bitmap Draw_Map(double latSta = -200, double latEnd = -200, double lonSta = -200, double lonEnd = -200)
         {
+            if (latSta == -200)
+                latSta = config_map.LatSta;
+            if (latEnd == -200)
+                latEnd = config_map.LatEnd;
+            if (lonSta == -200)
+                lonSta = config_map.LonSta;
+            if (lonEnd == -200)
+                lonEnd = config_map.LonEnd;
+
             var mapImg = new Bitmap(config_map.MapSize * 16 / 9, config_map.MapSize);
-            var zoomW = config_map.MapSize / (config_map.LonEnd - config_map.LonSta);
-            var zoomH = config_map.MapSize / (config_map.LatEnd - config_map.LatSta);
-            var g = Graphics.FromImage(mapImg);
+            var zoomW = config_map.MapSize / (lonEnd - lonSta);
+            var zoomH = config_map.MapSize / (latEnd - latSta);
+            using var g = Graphics.FromImage(mapImg);
             g.Clear(config_color.Map.Sea);
             var mapType = (int)config_map.MapType / 10;
             var mapDetail = (int)config_map.MapType % 10;
@@ -201,7 +289,7 @@ namespace KmoniReproducer
                         continue;
                     if ((string?)mapjson_feature["geometry"]["type"] == "Polygon")
                     {
-                        var points = mapjson_feature["geometry"]["coordinates"][0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
+                        var points = mapjson_feature["geometry"]["coordinates"][0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - lonSta) * zoomW), (int)((latEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
                         if (points.Length > 2)
                             gPath.AddPolygon(points);
                     }
@@ -209,7 +297,7 @@ namespace KmoniReproducer
                     {
                         foreach (var mapjson_coordinates in mapjson_feature["geometry"]["coordinates"].AsArray())
                         {
-                            var points = mapjson_coordinates[0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - config_map.LonSta) * zoomW), (int)((config_map.LatEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
+                            var points = mapjson_coordinates[0].AsArray().Select(mapjson_coordinate => new Point((int)(((double)mapjson_coordinate[0] - lonSta) * zoomW), (int)((latEnd - (double)mapjson_coordinate[1]) * zoomH))).ToArray();
                             if (points.Length > 2)
                                 gPath.AddPolygon(points);
                         }
@@ -217,15 +305,15 @@ namespace KmoniReproducer
                 }
                 if (i == 1)
                     g.FillPath(new SolidBrush(config_color.Map.Japan), gPath);
-                g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f * (3 - i)), gPath);
+                g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f * (mapType + 1 - i)), gPath);
             }
             var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
             g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
-            g.Dispose();
             return mapImg;
         }
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
 #pragma warning restore CS8604 // Null 参照引数の可能性があります。
+
 
 #pragma warning disable CS8603 // Null 参照戻り値である可能性があります。
         /// <summary>
@@ -278,7 +366,7 @@ namespace KmoniReproducer
         public static Color Shindo2Color(double? shindo)
         {
             shindo ??= double.NaN;
-            return config_color.Obs_UseIntColor ? Shindo2Color_Int(shindo) : Shindo2Color_Kmoni(shindo); ;
+            return config_draw.Obs_UseIntColor ? Shindo2Color_Int(shindo) : Shindo2Color_Kmoni(shindo); ;
         }
 
         /// <summary>
@@ -337,12 +425,47 @@ namespace KmoniReproducer
         {
             return new SolidBrush(Shindo2Color(shindo));
         }
+
+        /// <summary>
+        /// doubleの震度をintに変換します。-0.5以下で-1, 5弱で5, 5強で6, 失敗時int.MinValueです。
+        /// </summary>
+        /// <param name="shindo">変換する震度</param>
+        /// <returns>震度(int.MinValue,-1~9)</returns>
+        public static int Shindo2Int(double? shindo)
+        {
+            shindo ??= double.NaN;
+            if (shindo <= -0.5)
+                return -1;
+            else if (shindo < 0.5)
+                return 0;
+            else if (shindo < 1.5)
+                return 1;
+            else if (shindo < 2.5)
+                return 2;
+            else if (shindo < 3.5)
+                return 3;
+            else if (shindo < 4.5)
+                return 4;
+            else if (shindo < 5.0)
+                return 5;
+            else if (shindo < 5.5)
+                return 6;
+            else if (shindo < 6.0)
+                return 7;
+            else if (shindo < 6.5)
+                return 8;
+            else if (shindo >= 6.5)
+                return 9;
+            else
+                return int.MinValue;
+        }
     }
 
-
+    /// <summary>
+    /// 描画設定
+    /// </summary>
     public class Config_Draw
     {
-
         /// <summary>
         /// 描画開始日時
         /// </summary>
@@ -372,6 +495,24 @@ namespace KmoniReproducer
         /// 観測点震度を観測点アイコン右に描画するか
         /// </summary>
         public bool DrawObsShindo { get; set; } = false;
+
+        /// <summary>
+        /// 自動ズームの対象震度
+        /// </summary>
+        /// <remarks>-9:自動ズーム無効</remarks>
+        public int AutoZoomMin { get; set; } = -9;
+
+        /// <summary>
+        /// 自動ズームの対象震度と最大震度の差
+        /// </summary>
+        /// <remarks>-9:自動ズーム無効 0:最大震度部分ズーム 3:最大震度から3階級下までズーム</remarks>
+        public int AutoZoomMinDif { get; set; } = -9;
+
+        /// <summary>
+        /// 観測点円の色を震度別色にするか(falseで強震モニタ色)
+        /// </summary>
+        public bool Obs_UseIntColor { get; set; } = false;
+
     }
 
     /// <summary>
@@ -465,17 +606,7 @@ namespace KmoniReproducer
             /// 海洋の塗りつぶし色
             /// </summary>
             public Color Sea { get; set; } = Color.FromArgb(30, 30, 60);
-            /*
-            /// <summary>
-            /// 世界(日本除く)の塗りつぶし色
-            /// </summary>
-            public Color World { get; set; } = Color.FromArgb(100, 100, 150);
-            
-            /// <summary>
-            /// 世界(日本除く)の境界線色
-            /// </summary>
-            public Color World_Border { get; set; }
-            */
+
             /// <summary>
             /// 日本の塗りつぶし色
             /// </summary>
@@ -496,11 +627,6 @@ namespace KmoniReproducer
         /// 右側部分等テキスト色
         /// </summary>
         public Color Text { get; set; } = Color.FromArgb(255, 255, 255);
-
-        /// <summary>
-        /// 観測点円の色を震度別色にするか(falseで強震モニタ色)
-        /// </summary>
-        public bool Obs_UseIntColor { get; set; } = false;
 
         /// <summary>
         /// 観測点の円(塗りつぶさないほう)の色
