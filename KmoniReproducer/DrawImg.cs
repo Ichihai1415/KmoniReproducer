@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System.Diagnostics;
+using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.Versioning;
@@ -9,14 +10,27 @@ using static KmoniReproducer.Program;
 
 namespace KmoniReproducer
 {
+    /// <summary>
+    /// 描画関係
+    /// </summary>
     [SupportedOSPlatform("windows")]
     public class DrawImg
     {
+        /// <summary>
+        /// 描画します。
+        /// </summary>
+        /// <param name="drawDatas">描画するデータ</param>
         public static void Draw(Data_Draw drawDatas)
         {
             var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
             var basemap = Draw_Map();
             var textColor = new SolidBrush(config_color.Text);
+
+            var saveConfigDir = saveDir + "\\config";
+            Directory.CreateDirectory(saveConfigDir);
+            File.WriteAllText(saveConfigDir + "\\config_draw.json", JsonSerializer.Serialize(config_draw, serializeIntend));
+            File.WriteAllText(saveConfigDir + "\\config_map.json", JsonSerializer.Serialize(config_map, serializeIntend));
+            File.WriteAllText(saveConfigDir + "\\config_color.json", JsonSerializer.Serialize(config_color, serializeIntend));
 
             var mapS = config_map.MapSize;
             var mapD4 = mapS / 4f;
@@ -45,6 +59,8 @@ namespace KmoniReproducer
                 mdsize = g_tmp.MeasureString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel));
                 infotextHei = g_tmp.MeasureString("あ", new Font(font, mapD36, GraphicsUnit.Pixel)).Height;
             }
+            var mapWmS = basemap.Width - mapS;
+            var mapSmMH = mapS - mdsize.Height;
 
             //#if true
 #if false
@@ -98,7 +114,6 @@ namespace KmoniReproducer
             img.Dispose();
 #else
 
-            Directory.CreateDirectory(saveDir);
             var nowP = 0;
             var total = (int)((config_draw.EndTime - config_draw.StartTime) / config_draw.DrawSpan);
             var calStartT = DateTime.Now;
@@ -224,7 +239,7 @@ namespace KmoniReproducer
                 infotextS.Reverse();
                 infotextN.Reverse();
 
-                g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, img.Width - mapS, mapS);
+                g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, mapWmS, mapS);
                 g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
                 var infotextI = 0;
                 for (var infoy = mapD20; infoy < mapS && infotextI < infotextS.Count; infoy += infotextHei)
@@ -238,13 +253,25 @@ namespace KmoniReproducer
                 g.DrawLine(new Pen(textColor, mapD1080), mapS, mapD20, img.Width, mapD20);
                 g.DrawLine(new Pen(textColor, mapD1080), mapD16p, mapD16p, img.Width, mapS);
 
-                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD24, GraphicsUnit.Pixel), textColor, 0, 0);
-                g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS - mdsize.Width, mapS - mdsize.Height);
+                g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, mapSmMH, mapWmS, mapS);
+                g.DrawLine(new Pen(textColor, mapD1080), mapS, mapSmMH, img.Width, mapSmMH);
+                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS, mapSmMH);
+                g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, img.Width - mdsize.Width, mapSmMH);
                 var savePath = $"{saveDir}\\{nowP:d4}.png";
                 img.Save(savePath, ImageFormat.Png);
             }
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 描画完了", ConsoleColor.Blue);
             ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
+
+            remake:
+            if (int.TryParse(ConAsk("ffmpegで動画を作成する場合、fpsを入力してください。複数作成したい場合は作成後またこの表示が出るので毎回入力してください。ffmpeg.exeのパスが通っている必要があります。\n数値への変換に失敗したら終了します。ミス防止のため空文字入力はできません。数字以外を何か入力してください。"), out int f))
+            {
+                ConWrite($"ffmpeg -framerate {f} -i \"{saveDir}\\%04d.png\" -vcodec libx264 -pix_fmt yuv420p -r {f} _output_{f}.mp4", ConsoleColor.Green);
+                ConWrite();
+                using var pro = Process.Start("ffmpeg", $"-framerate {f} -i \"{saveDir}\\%04d.png\" -vcodec libx264 -pix_fmt yuv420p -r {f} \"{saveDir}\\_output_{f}.mp4\"");
+                pro.WaitForExit();
+                goto remake;
+            }
 #endif
         }
 
@@ -307,8 +334,8 @@ namespace KmoniReproducer
                     g.FillPath(new SolidBrush(config_color.Map.Japan), gPath);
                 g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f * (mapType + 1 - i)), gPath);
             }
-            var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
-            g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
+            //var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
+            //g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
             return mapImg;
         }
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。

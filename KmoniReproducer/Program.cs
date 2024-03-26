@@ -190,7 +190,9 @@ namespace KmoniReproducer
                                 ConWrite("先に震度を計算してください。", ConsoleColor.Red);
                                 break;
                             }
-                            var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{data_Draw.CalPeriod.TotalSeconds}s";
+                            var calSpanCk_out = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
+                            var calSpan_out = calSpanCk_out[1] - calSpanCk_out[0];
+                            var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{calSpan_out.TotalSeconds}s-{data_Draw.CalPeriod.TotalSeconds}s";
                             Directory.CreateDirectory(dir_out);
                             File.WriteAllText($"{dir_out}\\_param.json",
                                 "{" +
@@ -277,13 +279,7 @@ namespace KmoniReproducer
                             config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();
 
                             Draw(data_Draw);
-                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了\n動画化(画像ファイルがあるフォルダで、ffmpeg.exeのパスが通っている場合): \n" +
-                                "- 1fps:    ffmpeg -framerate 1 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 1 _output_1.mp4\n" +
-                                "- 3fps:    ffmpeg -framerate 3 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 3 _output_3.mp4\n" +
-                                "- 5fps:    ffmpeg -framerate 5 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 5 _output_5.mp4\n" +
-                                "- 10fps:   ffmpeg -framerate 10 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 10 _output_10.mp4\n" +
-                                "- 30fps:   ffmpeg -framerate 30 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 30 _output_30.mp4\n" +
-                                "- 60fps:   ffmpeg -framerate 60 -i %04d.png -vcodec libx264 -pix_fmt yuv420p -r 60 _output_60.mp4", ConsoleColor.Blue);
+                            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了", ConsoleColor.Blue);
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -295,6 +291,9 @@ namespace KmoniReproducer
                         case "0":
                             Console.ForegroundColor = ConsoleColor.Gray;
                             Environment.Exit(0);
+                            break;
+                        default:
+                            ConWrite("値が無効です。", ConsoleColor.Red);
                             break;
                     }
                 }
@@ -677,7 +676,7 @@ namespace KmoniReproducer
                 }
                 else
                 {
-                    ConWrite("値を入力してください。", ConsoleColor.Red, false);
+                    ConWrite("値を入力してください。", ConsoleColor.Red);
                     ConWrite(message);
                     goto retry;
                 }
