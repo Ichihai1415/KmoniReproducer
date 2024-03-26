@@ -22,7 +22,7 @@ namespace KmoniReproducer
         /// <param name="drawDatas">描画するデータ</param>
         public static void Draw(Data_Draw drawDatas)
         {
-            var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
+            var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
             var basemap = Draw_Map();
             var textColor = new SolidBrush(config_color.Text);
 
@@ -143,7 +143,7 @@ namespace KmoniReproducer
                 var mapLonSta = config_map.LonSta;
                 var mapLonEnd = config_map.LonEnd;
 
-                if (sortedInts.Any())
+                if (sortedInts.Last().TimeInt.TryGetValue(drawTime, out double maxInt))
                     if (config_draw.AutoZoomMin != -9)//min有効
                     {
                         var viewAreaIntsM = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin);
@@ -151,7 +151,7 @@ namespace KmoniReproducer
                         {
                             if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
                             {
-                                var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                                var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
                                 var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
                                 if (viewAreaIntsD.Any())//minあるdifある
                                 {
@@ -173,7 +173,7 @@ namespace KmoniReproducer
                         }
                         else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
                         {
-                            var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                            var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
                             var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
                             if (viewAreaIntsD.Any())//minないdifある
                             {
@@ -192,7 +192,7 @@ namespace KmoniReproducer
                     }
                     else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
                     {
-                        var maxintMdiff = Shindo2Int(sortedInts.Last().TimeInt[drawTime]) - config_draw.AutoZoomMinDif;
+                        var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
                         var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) > maxintMdiff);
                         if (viewAreaIntD.Any())//min無効+difある
                         {
