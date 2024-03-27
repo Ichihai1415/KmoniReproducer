@@ -109,7 +109,19 @@ namespace KmoniReproducer
             ConWrite("【注意/お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
                 "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
                 "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
-            Thread.Sleep(1000);
+            if(!Directory.Exists("output"))
+            {
+                ConWrite("上記内容を確認してください。何かキーを押すと続行します。");
+                Console.ReadKey();
+            }
+            if (Console.WindowWidth < 110)
+            {
+                ConWrite(new string('-', 110));
+                ConWrite($"コンソールの幅が小さく、処理時一部の表示が崩れる可能性があります。↑↓の-が改行されない(1行に収まる)ようにしてください。", ConsoleColor.DarkYellow);
+                ConWrite(new string('-', 110));
+                if (ConAsk("サイズの変更を試行しますか？(y/n) Windows11の新しいコンソールでは非対応です。実行すると表示がおかしくなることがあります。", true, "n") == "y")
+                    Console.WindowWidth = 110;
+            }
             Data? data = null;
             Data_Draw? data_Draw = null;
 
@@ -130,7 +142,7 @@ namespace KmoniReproducer
             while (true)
                 try
                 {
-                    var mode = ConAsk("モード(数字)を入力してください。\n" +
+                    var mode = ConAsk("\nモード(数字)を入力してください。\n" +
                         "> 1.加速度データ読み込み(新規/追加)\n" +
                         "> 2.震度計算\n" +
                         "> 3.震度データ(独自形式)出力\n" +
@@ -458,6 +470,12 @@ namespace KmoniReproducer
                     totalValidDataCount.Add(validDataCount_tmp);
                 }
                 var validDataCountMax = totalValidDataCount.Max();
+                if (validDataCountMax == 0)
+                {
+                    ConWrite("有効な加速度データが存在しません。設定を確認してください。", ConsoleColor.Red);
+                    drawData = null;
+                    return;
+                }
                 ConWrite("\n");//─ │ ┌ ┐ └ ┘
                 Console.WindowWidth = Math.Max(Console.WindowWidth, 105);//なんか変わらない
                 Console.WriteLine("100│\n 90│\n 80│\n 70│\n 60│\n 50│\n 40│\n 30│\n 20│\n 10│\n" +
@@ -468,16 +486,20 @@ namespace KmoniReproducer
                 for (var i = 1; i < 101; i++)
                 {
                     var left = i + 3;
-                    var j = totalValidDataCount.Count * i / 100 - 1;
+                    var j = Math.Max(totalValidDataCount.Count * i / 100 - 1, 0);
                     var validDataCount_ = totalValidDataCount[j];
                     var value = validDataCount_ * 100 / validDataCountMax;//最高に対する割合
                     var y = (int)Math.Round(value / 10d, MidpointRounding.AwayFromZero);
                     //var y = (int)Math.Round(i / 10d, MidpointRounding.AwayFromZero);
                     Console.SetCursorPosition(left, endLine - y);
-                    Console.Write("*");
+                    if (validDataCount_ == 0)
+                        Console.Write("x");
+                    else
+                        Console.Write("*");
+                    Thread.Sleep(10);
                 }
                 Console.SetCursorPosition(0, endLine + 3);
-                ConWrite("<データ数の分布> 縦軸が処理データ数が最大となるものを100%にしたときの割合、横軸がデータの計算の割合(100%で終了)\n" +
+                ConWrite("<データ数の分布> 縦軸が処理データ数が最大となるものを100%にしたときの割合、横軸がデータの計算の割合(100%で終了) xはデータなし\n" +
                     "計算時間はおおむねこのグラフのように変化します(縦軸の値が大きいほど時間がかかる)。参考にしてください(予想時間は直前の計算時間のまま計算したときの時間です)。");
                 if (ConAsk("計算を実行してよろしいですか？(y/n) (計算時間は過不足していませんか？)") != "y")
                 {
