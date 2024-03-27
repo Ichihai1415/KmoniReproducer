@@ -151,8 +151,8 @@ namespace KmoniReproducer
                         {
                             if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
                             {
-                                var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
-                                var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                                var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;//5,1=>4 (4以上)
+                                var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxintMdiff);
                                 if (viewAreaIntsD.Any())//minあるdifある
                                 {
                                     mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
@@ -174,7 +174,7 @@ namespace KmoniReproducer
                         else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
                         {
                             var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
-                            var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) > maxintMdiff);
+                            var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxintMdiff);
                             if (viewAreaIntsD.Any())//minないdifある
                             {
                                 mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
@@ -193,7 +193,7 @@ namespace KmoniReproducer
                     else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
                     {
                         var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
-                        var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) > maxintMdiff);
+                        var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) >= maxintMdiff);
                         if (viewAreaIntD.Any())//min無効+difある
                         {
                             mapLatSta = viewAreaIntD.Min(x => x.StationLat);
