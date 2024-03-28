@@ -57,6 +57,14 @@ namespace KmoniReproducer
 
         static void Main(/*string[] args*/)
         {
+            ConWrite("\n" +
+                "  ////////////////////////////////////////////////////////\n" +
+                "  //                                                    //\n" +
+                "  //  KmoniReproducer v1.0.0                            //\n" +
+                "  //    https://github.com/Ichihai1415/KmoniReproducer  //\n" +
+                "  //                                                    //\n" +
+                "  ////////////////////////////////////////////////////////\n" +
+                "");
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 初期化中...", ConsoleColor.Blue);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);//Encoding.GetEncoding("Shift-JIS")に必要
             if (!File.Exists("Koruri-Regular.ttf"))
@@ -109,7 +117,7 @@ namespace KmoniReproducer
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
 
-            ConWrite("【注意/お知らせ】特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
+            ConWrite("【注意/お知らせ】README.md、Wiki(https://github.com/Ichihai1415/KmoniReproducer/wiki)を確認してください。\n特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
                 "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
                 "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
             if(!Directory.Exists("output"))
