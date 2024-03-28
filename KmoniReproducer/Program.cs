@@ -57,6 +57,7 @@ namespace KmoniReproducer
 
         static void Main(/*string[] args*/)
         {
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 初期化中...", ConsoleColor.Blue);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);//Encoding.GetEncoding("Shift-JIS")に必要
             if (!File.Exists("Koruri-Regular.ttf"))
                 File.WriteAllBytes("Koruri-Regular.ttf", Resources.Koruri_Regular);
@@ -66,6 +67,8 @@ namespace KmoniReproducer
             pfc.AddFontFile("Koruri-Regular.ttf");
             font = pfc.Families[0];
             serializeIntend.Converters.Add(new ColorConverter());
+
+            Datas.KNETKiKnetObsPoints = Datas.KNETKiKnetObsPoints_PrefName.ToDictionary(k => k.Key, v => v.Value.Split(' ')[1]);
 
             if (File.Exists("config-color.json"))
                 config_color = JsonSerializer.Deserialize<Config_Color>(File.ReadAllText("config-color.json"), serializeIntend) ?? new Config_Color();

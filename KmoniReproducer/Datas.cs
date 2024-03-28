@@ -121,7 +121,7 @@ namespace KmoniReproducer
         /// </summary>
         /// <remarks>2024/03/21更新　データ:https://www.kyoshin.bosai.go.jp/kyoshin/db/index.html</remarks>
         #region KNETKiKnetObsPoints
-        public static readonly Dictionary<string, string> KNETKiKnetObsPoints = new()
+        public static readonly Dictionary<string, string> KNETKiKnetObsPoints_PrefName = new()
         {
             { "ABSH01", "北海道 雄武" },
             { "ABSH02", "北海道 興部西" },
@@ -1871,5 +1871,11 @@ namespace KmoniReproducer
             { "YMTH15", "山形県 西川東" },
         };
         #endregion
+
+        /// <summary>
+        /// K-NET,KiK-netの観測点コードと名称
+        /// </summary>
+        /// <remarks>起動時<c>KNETKiKnetObsPoints_PrefName</c>を参照する</remarks>
+        public static Dictionary<string, string> KNETKiKnetObsPoints = [];
     }
 }

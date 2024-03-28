@@ -259,7 +259,8 @@ namespace KmoniReproducer
                     else
                         ConWrite($"読み込み失敗:{fileName}", ConsoleColor.Red);
 #if DEBUG
-                    ConWrite("[JMAcsv2ObsData]", ex);
+                    if (!fileName.EndsWith("level.csv"))
+                        ConWrite("[JMAcsv2ObsData]", ex);
 #endif
                     return null;
                 }
