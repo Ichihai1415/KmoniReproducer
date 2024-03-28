@@ -122,14 +122,14 @@ namespace KmoniReproducer
                 drawData.StationName = Datas.KNETKiKnetObsPoints.TryGetValue(drawData.StationName, out string? name) ? $"{name} ({drawData.StationName})" : drawData.StationName;
 
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 描画中...", ConsoleColor.Blue);
-            ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount:{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
+            ConWrite($"{config_draw.StartTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {config_draw.EndTime:HH:mm:ss.ff}  span:{config_draw.DrawSpan:mm\\:ss\\.ff}   dataCount(int):{drawDatas.Datas_Draw.Count}", ConsoleColor.Green);
             for (var drawTime = config_draw.StartTime; drawTime < config_draw.EndTime; drawTime += config_draw.DrawSpan)
             {
                 nowP++;
                 if (nowP % 10 == 0)
                 {
                     var eta = (DateTime.Now - calStartT2) / 10d * (total - nowP);
-                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
+                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last 10draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
                     ConsoleClearRight();
                     calStartT2 = DateTime.Now;
                     if (nowP % 100 == 0)
@@ -508,11 +508,6 @@ namespace KmoniReproducer
         /// 描画間隔
         /// </summary>
         public TimeSpan DrawSpan { get; set; } = TimeSpan.FromSeconds(1);
-
-        /// <summary>
-        /// 画像の高さ1080での観測点のサイズ
-        /// </summary>
-        public int ObsSize { get; set; } = 7;
 
         /// <summary>
         /// 観測点名を観測点アイコン右に描画するか
