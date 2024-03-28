@@ -118,7 +118,7 @@ namespace KmoniReproducer
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
             ConWrite($"RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
 
-            ConWrite("【注意/お知らせ】README.md、Wiki(https://github.com/Ichihai1415/KmoniReproducer/wiki)を確認してください。\n特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
+            ConWrite("【注意/お知らせ】README(https://github.com/Ichihai1415/KmoniReproducer/blob/release/KmoniReproducer/README.md)、Wiki(https://github.com/Ichihai1415/KmoniReproducer/wiki)を確認してください。\n特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
                 "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
                 "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
             if (!Directory.Exists("output"))
@@ -194,7 +194,7 @@ namespace KmoniReproducer
                                 ConWrite("先に加速度データを読み込んでください。", ConsoleColor.Red);
                                 break;
                             }
-
+                            var autoSave = ConAsk("計算後自動で保存しますか？(y/n) 既定:y", true, "y") == "y";
                             var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {(data.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--" : data.OriginTime)} となっています。例:2024/01/01 00:00:00", data.OriginTime != DateTime.MinValue, data.OriginTime.ToString()));
                             Acc2JI(data, out var data_Draw_tmp,
                                 startT2,
@@ -202,33 +202,11 @@ namespace KmoniReproducer
                                 TimeSpan.FromSeconds(double.Parse(ConAsk($"計算間隔(秒、小数可)を入力してください。例1:1 例2:0.5", true, "1"))),
                                 TimeSpan.FromSeconds(double.Parse(ConAsk($"計算秒数(秒、小数可)を入力してください。基本は1分ですが時間がかかります。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:60", true, "60"))));
                             data_Draw = data_Draw_tmp;
+                            if (autoSave)
+                                ShindoSave(data_Draw);
                             break;
                         case "3":
-                            if (data_Draw == null)
-                            {
-                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
-                                break;
-                            }
-                            if (data_Draw.Datas_Draw.Count == 0)
-                            {
-                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
-                                break;
-                            }
-                            var calSpanCk_out = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
-                            var calSpan_out = calSpanCk_out[1] - calSpanCk_out[0];
-                            var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{calSpan_out.TotalSeconds}s-{data_Draw.CalPeriod.TotalSeconds}s";
-                            Directory.CreateDirectory(dir_out);
-                            File.WriteAllText($"{dir_out}\\_param.json",
-                                "{" +
-                                $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
-                                $"\"HypoLat\":{data_Draw.HypoLat}," +
-                                $"\"HypoLon\":{data_Draw.HypoLon}," +
-                                $"\"CalPeriod\":\"{data_Draw.CalPeriod}\"," +
-                                $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}" +
-                                "}");
-                            foreach (var obsData in data_Draw.Datas_Draw)
-                                File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));//観測点名によっては失敗するかも
-                            ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
+                            ShindoSave(data_Draw);
                             break;
                         case "4":
                             var dir_in = ConAsk("出力したフォルダを入力してください。").Replace("\"", "");
@@ -652,6 +630,39 @@ namespace KmoniReproducer
         }
 
         /// <summary>
+        /// 震度データを保存します。
+        /// </summary>
+        /// <param name="data_Draw">描画用データ</param>
+        public static void ShindoSave(Data_Draw? data_Draw)
+        {
+            if (data_Draw == null)
+            {
+                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                return;
+            }
+            if (data_Draw.Datas_Draw.Count == 0)
+            {
+                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                return;
+            }
+            var calSpanCk_out = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
+            var calSpan_out = calSpanCk_out[1] - calSpanCk_out[0];
+            var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{calSpan_out.TotalSeconds}s-{data_Draw.CalPeriod.TotalSeconds}s";
+            Directory.CreateDirectory(dir_out);
+            File.WriteAllText($"{dir_out}\\_param.json",
+                "{" +
+                $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
+                $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}," +
+                $"\"CalPeriod\":\"{data_Draw.CalPeriod}\"," +
+                $"\"HypoLat\":{data_Draw.HypoLat}," +
+                $"\"HypoLon\":{data_Draw.HypoLon}" +
+                "}");
+            foreach (var obsData in data_Draw.Datas_Draw)
+                File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));//観測点名によっては失敗するかも
+            ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
+        }
+
+        /// <summary>
         /// 画像描画用に緯度・経度を補正します。余白も追加します。
         /// </summary>
         /// <param name="latSta">緯度の始点</param>
@@ -666,19 +677,19 @@ namespace KmoniReproducer
             lonEnd += (lonEnd - lonSta) / 20;
             if (latEnd - latSta < 3)//緯度差を最小3に
             {
-                double correction = (3 - (latEnd - latSta)) / 2d;
+                var correction = (3 - (latEnd - latSta)) / 2d;
                 latSta -= correction;
                 latEnd += correction;
             }
             if (lonEnd - lonSta > latEnd - latSta)//大きいほうに合わせる
             {
-                double correction = ((lonEnd - lonSta) - (latEnd - latSta)) / 2d;
+                var correction = ((lonEnd - lonSta) - (latEnd - latSta)) / 2d;
                 latSta -= correction;
                 latEnd += correction;
             }
             else// if (LonEnd - LonSta < LatEnd - LatSta)
             {
-                double correction = ((latEnd - latSta) - (lonEnd - lonSta)) / 2d;
+                var correction = ((latEnd - latSta) - (lonEnd - lonSta)) / 2d;
                 lonSta -= correction;
                 lonEnd += correction;
             }

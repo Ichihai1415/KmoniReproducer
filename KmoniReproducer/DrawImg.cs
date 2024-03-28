@@ -129,7 +129,7 @@ namespace KmoniReproducer
                 if (nowP % 10 == 0)
                 {
                     var eta = (DateTime.Now - calStartT2) / 10d * (total - nowP);
-                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
+                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last 10draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
                     ConsoleClearRight();
                     calStartT2 = DateTime.Now;
                     if (nowP % 100 == 0)
@@ -508,11 +508,6 @@ namespace KmoniReproducer
         /// 描画間隔
         /// </summary>
         public TimeSpan DrawSpan { get; set; } = TimeSpan.FromSeconds(1);
-
-        /// <summary>
-        /// 画像の高さ1080での観測点のサイズ
-        /// </summary>
-        public int ObsSize { get; set; } = 7;
 
         /// <summary>
         /// 観測点名を観測点アイコン右に描画するか
