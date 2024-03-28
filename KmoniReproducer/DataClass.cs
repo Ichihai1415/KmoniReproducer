@@ -35,7 +35,7 @@ namespace KmoniReproducer
                 };
 #pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
-                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
+                ConWrite($"dataCount(acc):{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                 return data;
             }
             catch (Exception ex)
@@ -76,7 +76,7 @@ namespace KmoniReproducer
                 if (hypoLon != null)
                     data.HypoLon = (double)hypoLon;
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
-                ConWrite($"dataCount:{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
+                ConWrite($"dataCount(acc):{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                 return data;
             }
             catch (Exception ex)
@@ -126,7 +126,7 @@ namespace KmoniReproducer
             obsDataList.AddRange(obsDatas);
             ObsDatas = [.. obsDataList];
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 追加完了", ConsoleColor.Blue);
-            ConWrite($"dataCount:{ObsDatas.Length}(points:{ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
+            ConWrite($"dataCount(acc):{ObsDatas.Length}(points:{ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
         }
 
         /// <summary>

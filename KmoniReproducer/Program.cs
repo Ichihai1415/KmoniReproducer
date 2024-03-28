@@ -55,7 +55,7 @@ namespace KmoniReproducer
 
         public static JsonSerializerOptions serializeIntend = new() { WriteIndented = true };
 
-        static void Main(/*string[] args*/)
+        static void Main(/*string[] args*/)//todo:加速度データ格納を1Data_AccにNS,EW,UD全部入れるように
         {
             ConWrite("\n" +
                 "  ////////////////////////////////////////////////////////\n" +
@@ -116,11 +116,12 @@ namespace KmoniReproducer
                 return;
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
+            ConWrite($"RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
 
             ConWrite("【注意/お知らせ】README.md、Wiki(https://github.com/Ichihai1415/KmoniReproducer/wiki)を確認してください。\n特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
                 "ソフトを再起動してもいいですが読み込んだデータ、計算済み震度等内部のデータが消えることに注意してください。\n" +
                 "また、入力要求時に例や推測される値を示す場合があります。何も入力しなかった場合推測される値があればその値(緯度経度や値が未設定の場合は除く)、それ以外は例の値が自動入力されます(例が複数あるものは1つ目のもの)。\n", ConsoleColor.Yellow);
-            if(!Directory.Exists("output"))
+            if (!Directory.Exists("output"))
             {
                 ConWrite("上記内容を確認してください。何かキーを押すと続行します。");
                 Console.ReadKey();
@@ -152,7 +153,7 @@ namespace KmoniReproducer
 
             while (true)
                 try
-                {
+                {//todo:1x:震度計算関連 2x(21,22):震度データ関連のように 12,13で加速度データを独自形式出力入力追加
                     var mode = ConAsk("\nモード(数字)を入力してください。\n" +
                         "> 1.加速度データ読み込み(新規/追加)\n" +
                         "> 2.震度計算\n" +
@@ -310,6 +311,7 @@ namespace KmoniReproducer
                         case "9":
                             data = null;
                             data_Draw = null;
+                            ConWrite($"RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                             break;
                         case "0":
                             Console.ForegroundColor = ConsoleColor.Gray;
@@ -522,7 +524,7 @@ namespace KmoniReproducer
             //return;
 
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 震度計算中...", ConsoleColor.Blue);
-            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff} period:{calPeriod:mm\\:ss\\.ff}  dataCount:{data.ObsDatas.Length / 3}\n", ConsoleColor.Green);
+            ConWrite($"{startTime:yyyy/MM/dd  HH:mm:ss.ff} ~ {endTime:HH:mm:ss.ff}  span:{calSpan:mm\\:ss\\.ff} period:{calPeriod:mm\\:ss\\.ff}  dataCount(acc)(points):{data.ObsDatas.Length / 3}\n", ConsoleColor.Green);
             Console.SetCursorPosition(0, Console.CursorTop - 1);
             var nowP = 0;
             var total = (endTime - startTime) / calSpan;
@@ -634,6 +636,7 @@ namespace KmoniReproducer
             ConWrite(text1 + $"[data:100.00% of {total2}]" + text2, ConsoleColor.Green);
 
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 震度計算完了", ConsoleColor.Blue);
+            ConWrite($"dataCount(int):{drawData.Datas_Draw.Count}  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
         }
 
         /// <summary>
