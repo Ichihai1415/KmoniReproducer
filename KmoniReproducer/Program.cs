@@ -60,7 +60,7 @@ namespace KmoniReproducer
             ConWrite("\n" +
                 "  ////////////////////////////////////////////////////////\n" +
                 "  //                                                    //\n" +
-                "  //  KmoniReproducer v1.0.0                            //\n" +
+                "  //  KmoniReproducer v1.0.1                            //\n" +
                 "  //    https://github.com/Ichihai1415/KmoniReproducer  //\n" +
                 "  //                                                    //\n" +
                 "  ////////////////////////////////////////////////////////\n" +
@@ -202,7 +202,7 @@ namespace KmoniReproducer
                                 TimeSpan.FromSeconds(double.Parse(ConAsk($"計算間隔(秒、小数可)を入力してください。例1:1 例2:0.5", true, "1"))),
                                 TimeSpan.FromSeconds(double.Parse(ConAsk($"計算秒数(秒、小数可)を入力してください。基本は1分ですが時間がかかります。リアルタイムでの揺れの再現や速く処理したい場合短くしてください。※短いほど実際の震度とずれが生まれます。例:60", true, "60"))));
                             data_Draw = data_Draw_tmp;
-                            if (autoSave)
+                            if (autoSave && data_Draw_tmp != null)//計算失敗時もここ来るため
                                 ShindoSave(data_Draw);
                             break;
                         case "3":
@@ -303,6 +303,8 @@ namespace KmoniReproducer
                 catch (Exception ex)
                 {
                     ConWrite("[Main]", ex);
+                    Directory.CreateDirectory("Errorlog");
+                    File.WriteAllText($"Errorlog\\{DateTime.Now:yyyyMMddHHmmss.ffff}", ex.ToString());
                 }
         }
 
@@ -587,7 +589,8 @@ namespace KmoniReproducer
                     var index03 = (int)Math.Floor(0.3 * data1.SamplingFreq) - 1;
 
                     var ji = Math.Floor(Math.Round(((2 * Math.Log(dataAcCR[index03], 10)) + 0.96) * 100, MidpointRounding.AwayFromZero) / 10) / 10;
-                    drawData.AddInt(data1, drawTime, ji);
+                    if (double.IsNormal(ji) || ji == 0)//小さすぎると-∞の時がある？ 0でもIsNormal=false
+                        drawData.AddInt(data1, drawTime, ji);//計算はしてるから↓は追加しとく
                     //ConWrite($"{data1.StationName} {drawTime:HH:mm:ss.ff} : {ji}", ConsoleColor.Cyan);
                     //return;
 
@@ -635,6 +638,7 @@ namespace KmoniReproducer
         /// <param name="data_Draw">描画用データ</param>
         public static void ShindoSave(Data_Draw? data_Draw)
         {
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 震度データ出力中...", ConsoleColor.Blue);
             if (data_Draw == null)
             {
                 ConWrite("先に震度を計算してください。", ConsoleColor.Red);

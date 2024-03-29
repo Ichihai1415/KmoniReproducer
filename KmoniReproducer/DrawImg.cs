@@ -265,7 +265,7 @@ namespace KmoniReproducer
             ConWrite($"{saveDir} に出力しました。", ConsoleColor.Green);
 
         remake:
-            if (int.TryParse(ConAsk("ffmpegで動画を作成する場合、fpsを入力してください。複数作成したい場合は作成後またこの表示が出るので毎回入力してください。ffmpeg.exeのパスが通っている必要があります。\n数値への変換に失敗したら終了します。ミス防止のため空文字入力はできません。数字以外を何か入力してください。"), out int f))
+            if (int.TryParse(ConAsk("ffmpegで動画を作成する場合、fps(フレームレート)を入力してください。複数作成したい場合は作成後またこの表示が出るので毎回入力してください。ffmpeg.exeのパスが通っている必要があります。\n数値への変換に失敗したら終了します。ミス防止のため空文字入力はできません。数字以外を何か入力してください。"), out int f))
             {
                 ConWrite($"ffmpeg -framerate {f} -i \"{saveDir}\\%04d.png\" -vcodec libx264 -pix_fmt yuv420p -r {f} _output_{f}.mp4", ConsoleColor.Green);
                 ConWrite();
