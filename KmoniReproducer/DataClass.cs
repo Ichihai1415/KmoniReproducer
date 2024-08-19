@@ -92,20 +92,20 @@ namespace KmoniReproducer
         /// ObsDatasを追加します。
         /// </summary>
         /// <param name="data">追加するObsDatasを含むData</param>
-        /// <param name="changeEqinfo">地震データを上書きするか(K-NET,KiK-netのみ)　<paramref name="data"/>に無ければ上書きしません。</param>
-        public void AddObsDatas(Data? data, bool changeEqinfo)
+        /// <param name="changeEqinfo">地震データを上書きするか(K-NET,KiK-netのみ)　<paramref name="data"/>に無いまたはすでにある場合上書きしません。</param>
+        public void AddObsDatas(Data? data, bool changeEqinfo)//v1.0.2(仮)実装でchangeEqinfoは不要になった
         {
             if (data == null)
                 return;
             if (data.ObsDatas == null)
                 return;
-            if (changeEqinfo)
+            if (changeEqinfo)//一部だけない状態だと混ざる可能性
             {
-                if (data.OriginTime != DateTime.MinValue)
+                if (data.OriginTime != DateTime.MinValue && OriginTime == DateTime.MinValue)
                     OriginTime = data.OriginTime;
-                if (data.HypoLat != -200d)
+                if (data.HypoLat != -200d && HypoLat == -200d)
                     HypoLat = data.HypoLat;
-                if (data.HypoLon != -200d)
+                if (data.HypoLon != -200d && HypoLon == -200d)
                     HypoLon = data.HypoLon;
             }
             AddObsDatas(data.ObsDatas);

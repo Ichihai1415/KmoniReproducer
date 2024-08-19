@@ -166,7 +166,7 @@ namespace KmoniReproducer
                     switch (mode)
                     {
                         case "1":
-                            var dataSrc1 = ConAsk("データの機関(数字)を入力してください。\n" +
+                            var dataSrc1 = ConAsk("データの機関(数字)を入力してください。複数読み込む場合、震源情報等は最初にあったものが残ります。\n" +
                                 "> 1.K-NET,KiK-net(.NS/.EW/.UD/.NS2/.EW2/.UD2)\n" +
                                 "> 2.気象庁(.csv)");
                             switch (dataSrc1)
