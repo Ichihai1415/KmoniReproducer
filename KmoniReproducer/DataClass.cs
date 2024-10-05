@@ -31,6 +31,7 @@ namespace KmoniReproducer
                     OriginTime = fileText1[0] == "" ? DateTime.MinValue : DateTime.Parse(fileText1[0]),//即時公開データ等震源データがない
                     HypoLat = fileText1[1] == "" ? -200d : double.Parse(fileText1[1]),
                     HypoLon = fileText1[2] == "" ? -200d : double.Parse(fileText1[2]),
+                    Depth = fileText1[3] == "" ? -200d : double.Parse(fileText1[3]),
                     ObsDatas = fileNames.Select(ObsData.KNET_ASCII2ObsData).Where(x => x != null).ToArray()
                 };
 #pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
@@ -55,7 +56,7 @@ namespace KmoniReproducer
         /// <param name="originTime">(発生日時)</param>
         /// <param name="hypoLat">(震源緯度)</param>
         /// <param name="hypoLon">(震源経度)</param>
-        public static Data? JMAcsv2Data(string[] fileNames, DateTime? originTime = null, double? hypoLat = null, double? hypoLon = null)
+        public static Data? JMACSV2Data(string[] fileNames, DateTime? originTime = null, double? hypoLat = null, double? hypoLon = null, double? depth = null)
         {
             try
             {
@@ -72,9 +73,11 @@ namespace KmoniReproducer
                 if (originTime != null)
                     data.OriginTime = (DateTime)originTime;
                 if (hypoLat != null)
-                    data.HypoLat = (double)hypoLat;
+                    data.HypoLat = hypoLat.Value;
                 if (hypoLon != null)
-                    data.HypoLon = (double)hypoLon;
+                    data.HypoLon = hypoLon.Value;
+                if(depth != null)
+                    data.Depth = depth.Value;
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                 ConWrite($"dataCount(acc):{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
                 return data;
@@ -82,7 +85,7 @@ namespace KmoniReproducer
             catch (Exception ex)
             {
 #if DEBUG
-                ConWrite("[JMAcsv2Data]", ex);
+                ConWrite("[JMACSV2Data]", ex);
 #endif
                 return null;
             }
@@ -93,7 +96,7 @@ namespace KmoniReproducer
         /// </summary>
         /// <param name="data">追加するObsDatasを含むData</param>
         /// <param name="changeEqinfo">地震データを上書きするか(K-NET,KiK-netのみ)　<paramref name="data"/>に無いまたはすでにある場合上書きしません。</param>
-        public void AddObsDatas(Data? data, bool changeEqinfo)//v1.0.2(仮)実装でchangeEqinfoは不要になった
+        public void AddObsDatas(Data? data, bool changeEqinfo)//v1.0.2(仮)実装で changeEqinfoは不要になった
         {
             if (data == null)
                 return;
@@ -107,6 +110,8 @@ namespace KmoniReproducer
                     HypoLat = data.HypoLat;
                 if (data.HypoLon != -200d && HypoLon == -200d)
                     HypoLon = data.HypoLon;
+                if (data.Depth != -200d && Depth == -200d)
+                    Depth = data.Depth;
             }
             AddObsDatas(data.ObsDatas);
         }
@@ -143,6 +148,11 @@ namespace KmoniReproducer
         /// 震源経度
         /// </summary>
         public double HypoLon { get; set; } = -200d;
+
+        /// <summary>
+        /// 震源深さ
+        /// </summary>
+        public double Depth { get; set; } = -200d;
 
         /// <summary>
         /// 観測データの配列
@@ -321,8 +331,10 @@ namespace KmoniReproducer
         /// <param name="data">一地震での加速度データと地震データ</param>
         public Data_Draw(Data data)
         {
+            OriginTime = data.OriginTime;
             HypoLat = data.HypoLat;
             HypoLon = data.HypoLon;
+            Depth = data.Depth;
         }
 
         /// <summary>
@@ -344,6 +356,11 @@ namespace KmoniReproducer
         public DateTime CalStartTime { get; set; } = DateTime.MinValue;
 
         /// <summary>
+        /// 発生時刻
+        /// </summary>
+        public DateTime OriginTime { get; set; } = DateTime.MinValue;
+
+        /// <summary>
         /// 震源緯度
         /// </summary>
         public double HypoLat { get; set; } = -200d;
@@ -352,6 +369,11 @@ namespace KmoniReproducer
         /// 震源経度
         /// </summary>
         public double HypoLon { get; set; } = -200d;
+
+        /// <summary>
+        /// 震源深さ
+        /// </summary>
+        public double Depth { get; set; } = -200d;
 
         /// <summary>
         /// 震度計算時間(通常1分)

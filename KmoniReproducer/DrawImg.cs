@@ -23,7 +23,7 @@ namespace KmoniReproducer
         public static void Draw(Data_Draw drawDatas)
         {
             var saveDir = $"output\\images\\{config_draw.StartTime:yyyyMMddHHmmss}\\{config_draw.StartTime:yyyyMMddHHmmss}-{DateTime.Now:yyyyMMddHHmmss}";
-            var basemap = Draw_Map();
+            var baseMap = Draw_Map();
             var textColor = new SolidBrush(config_color.Text);
 
             var saveConfigDir = saveDir + "\\config";
@@ -51,68 +51,16 @@ namespace KmoniReproducer
             var mapD180 = mapS / 180f;
             var mapD1080 = mapS / 1080f;
 
-            var mdsize = new SizeF();
-            var infotextHei = 0f;
+            var mdSize = new SizeF();
+            var infoTextHei = 0f;
             using (var img_tmp = new Bitmap(100, 100))
             using (var g_tmp = Graphics.FromImage(img_tmp))
             {
-                mdsize = g_tmp.MeasureString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel));
-                infotextHei = g_tmp.MeasureString("あ", new Font(font, mapD36, GraphicsUnit.Pixel)).Height;
+                mdSize = g_tmp.MeasureString("地図データ:気象庁", new Font(font!, mapD28i, GraphicsUnit.Pixel));
+                infoTextHei = g_tmp.MeasureString("あ", new Font(font!, mapD36, GraphicsUnit.Pixel)).Height;
             }
-            var mapWmS = basemap.Width - mapS;
-            var mapSmMH = mapS - mdsize.Height;
-
-            //#if true
-#if false
-            saveDir = $"output\\images";
-            var img = new Bitmap(basemap);
-            var g = Graphics.FromImage(img);
-            var drawTime = new DateTime(2024, 01, 01, 16, 10, 30);
-
-            var sortedInts = drawDatas.Datas_Draw.Values.OrderBy(x => x.TimeInt.TryGetValue(drawTime, out double value) ? value : double.MinValue);
-            var infotextS = new List<double>();
-            var infotextN = new List<string>();
-            var infohead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
-            foreach (var drawData in sortedInts)
-            {
-                var leftupperX = (int)((drawData.StationLon - config_map.LonSta) * zoomW) - obsSizeHalf;
-                var leftupperY = (int)((config_map.LatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
-                var text = config_draw.DrawObsName ? drawData.StationName + " " : "";
-                if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
-                {
-                    g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
-                    if (config_draw.DrawObsShindo)
-                        text += string.Format("{0:F1}", shindo);
-                    infotextS.Add(shindo);
-                    infotextN.Add(drawData.StationName);
-                }
-                g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
-                g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
-            }
-            infotextS.Reverse();
-            infotextN.Reverse();
-
-            g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, img.Width - mapS, mapS);
-            g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
-            var infotextI = 0;
-            for (var infoy = mapD20; infoy < mapS; infoy += infotextHei)
-            {
-                g.DrawString((infotextS[infotextI] >= 0 ? " " : "") + infotextS[infotextI].ToString("F1"), new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoy);
-                g.DrawString(infotextN[infotextI], new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoy);
-                g.FillRectangle(new SolidBrush(Shindo2Color_Int(infotextS[infotextI])), mapD60p, infoy, infotextHei, infotextHei);
-                g.FillRectangle(new SolidBrush(Shindo2Color_Kmoni(infotextS[infotextI])), mapD60p + mapD180 + infotextHei, infoy, infotextHei, infotextHei);
-                infotextI++;
-            }
-            g.DrawLine(new Pen(textColor, mapD1080), mapS, mapD20, img.Width, mapD20);
-            g.DrawLine(new Pen(textColor, mapD1080), mapD16p, mapD16p, img.Width, mapS);
-
-            g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD24, GraphicsUnit.Pixel), textColor, 0, 0);
-            g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS - mdsize.Width, mapS - mdsize.Height);
-            var savePath = $"{saveDir}\\{DateTime.Now:yyyyMMddHHmmss}.png";
-            img.Save(savePath, ImageFormat.Png);
-            g.Dispose();
-            img.Dispose();
-#else
+            var mapWmS = baseMap.Width - mapS;
+            var mapSmMH = mapS - mdSize.Height;
 
             var nowP = 0;
             var total = (int)((config_draw.EndTime - config_draw.StartTime) / config_draw.DrawSpan);
@@ -129,7 +77,7 @@ namespace KmoniReproducer
                 if (nowP % 10 == 0)
                 {
                     var eta = (DateTime.Now - calStartT2) / 10d * (total - nowP);
-                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  eta:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last 10draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
+                    ConWrite($"\r└ {drawTime:HH:mm:ss.ff} -> {nowP}/{total} ({nowP / (double)total * 100:F2}％)  ETA:{(int)eta.TotalMinutes}:{eta:ss\\.ff} (last 10draw:{(DateTime.Now - calStartT2).TotalMilliseconds}ms)", ConsoleColor.Green, false);
                     ConsoleClearRight();
                     calStartT2 = DateTime.Now;
                     if (nowP % 100 == 0)
@@ -147,13 +95,13 @@ namespace KmoniReproducer
                     if (config_draw.AutoZoomMin != -9)//min有効
                     {
                         var viewAreaIntsM = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin);
-                        if (viewAreaIntsM.Any())//minあるdifまだ
+                        if (viewAreaIntsM.Any())//minある difまだ
                         {
-                            if (config_draw.AutoZoomMinDif != -9)//minあるdif有効
+                            if (config_draw.AutoZoomMinDif != -9)//minある dif有効
                             {
-                                var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;//5,1=>4 (4以上)
-                                var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxintMdiff);
-                                if (viewAreaIntsD.Any())//minあるdifある
+                                var maxIntMDiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;//5,1=>4 (4以上)
+                                var viewAreaIntsD = viewAreaIntsM.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxIntMDiff);
+                                if (viewAreaIntsD.Any())//minある difある
                                 {
                                     mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
                                     mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
@@ -161,7 +109,7 @@ namespace KmoniReproducer
                                     mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
                                 }
                             }
-                            else//minあるdifない(そのまま)
+                            else//minある difない(そのまま)
                             {
                                 mapLatSta = viewAreaIntsM.Min(x => x.StationLat);
                                 mapLatEnd = viewAreaIntsM.Max(x => x.StationLat);
@@ -169,31 +117,31 @@ namespace KmoniReproducer
                                 mapLonEnd = viewAreaIntsM.Max(x => x.StationLon);
                             }
                             AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
-                            basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                            baseMap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
                         }
-                        else if (config_draw.AutoZoomMinDif != -9)//minないdif有効
+                        else if (config_draw.AutoZoomMinDif != -9)//minない dif有効
                         {
-                            var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
-                            var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxintMdiff);
-                            if (viewAreaIntsD.Any())//minないdifある
+                            var maxIntMDiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
+                            var viewAreaIntsD = validInts.Where(x => Shindo2Int(x.TimeInt[drawTime]) >= config_draw.AutoZoomMin).Where(x => Shindo2Int(x.TimeInt[drawTime]) >= maxIntMDiff);
+                            if (viewAreaIntsD.Any())//minない difある
                             {
                                 mapLatSta = viewAreaIntsD.Min(x => x.StationLat);
                                 mapLatEnd = viewAreaIntsD.Max(x => x.StationLat);
                                 mapLonSta = viewAreaIntsD.Min(x => x.StationLon);
                                 mapLonEnd = viewAreaIntsD.Max(x => x.StationLon);
                                 AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
-                                basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                                baseMap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
                             }
-                            else//minないdifない
-                                basemap = Draw_Map();
+                            else//minない difない
+                                baseMap = Draw_Map();
                         }
-                        else//minないdif無効
-                            basemap = Draw_Map();
+                        else//minない dif無効
+                            baseMap = Draw_Map();
                     }
-                    else if (config_draw.AutoZoomMinDif != -9)//min無効dif有効
+                    else if (config_draw.AutoZoomMinDif != -9)//min無効 dif有効
                     {
-                        var maxintMdiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
-                        var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) >= maxintMdiff);
+                        var maxIntMDiff = Shindo2Int(maxInt) - config_draw.AutoZoomMinDif;
+                        var viewAreaIntD = validInts.Where(x => Shindo2Int(x.TimeInt.TryGetValue(drawTime, out double value) ? value : null) >= maxIntMDiff);
                         if (viewAreaIntD.Any())//min無効+difある
                         {
                             mapLatSta = viewAreaIntD.Min(x => x.StationLat);
@@ -201,10 +149,10 @@ namespace KmoniReproducer
                             mapLonSta = viewAreaIntD.Min(x => x.StationLon);
                             mapLonEnd = viewAreaIntD.Max(x => x.StationLon);
                             AreaCorrect(ref mapLatSta, ref mapLatEnd, ref mapLonSta, ref mapLonEnd);
-                            basemap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
+                            baseMap = Draw_Map(mapLatSta, mapLatEnd, mapLonSta, mapLonEnd);
                         }
                         else//min無効+ない
-                            basemap = Draw_Map();
+                            baseMap = Draw_Map();
                     }
 
                 var zoomW = mapS / (mapLonEnd - mapLonSta);
@@ -214,50 +162,76 @@ namespace KmoniReproducer
                 var obsSize = (float)(Math.Pow(zoom / 43.2, 0.5) * 7);
                 var obsSizeHalf = obsSize / 2;
 
-                using var img = new Bitmap(basemap);
+                using var img = new Bitmap(baseMap);
                 using var g = Graphics.FromImage(img);
 
-                var infotextS = new List<double>();
-                var infotextN = new List<string>();
-                var infohead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
+                var infoTextS = new List<double>();
+                var infoTextN = new List<string>();
+                var infoHead = $"観測点数:{drawDatas.Datas_Draw.Count}  震度計算秒数:{(drawDatas.CalPeriod == TimeSpan.Zero ? "--" : drawDatas.CalPeriod.TotalSeconds)}秒";
                 foreach (var drawData in sortedInts)
                 {
-                    var leftupperX = (float)((drawData.StationLon - mapLonSta) * zoomW) - obsSizeHalf;
-                    var leftupperY = (float)((mapLatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
+                    var leftUpperX = (float)((drawData.StationLon - mapLonSta) * zoomW) - obsSizeHalf;
+                    var leftUpperY = (float)((mapLatEnd - drawData.StationLat) * zoomH) - obsSizeHalf;
                     var obsNameEdited = drawData.StationName;
                     var text = config_draw.DrawObsName ? obsNameEdited + " " : "";
                     if (drawData.TimeInt.TryGetValue(drawTime, out double shindo))
                     {
-                        g.FillEllipse(Shindo2ColorBrush(shindo), leftupperX, leftupperY, obsSize, obsSize);
+                        g.FillEllipse(Shindo2ColorBrush(shindo), leftUpperX, leftUpperY, obsSize, obsSize);
                         if (config_draw.DrawObsShindo)
                             text += string.Format("{0:F1}", shindo);
-                        infotextS.Add(shindo);
-                        infotextN.Add(obsNameEdited);
+                        infoTextS.Add(shindo);
+                        infoTextN.Add(obsNameEdited);
                     }
-                    g.DrawEllipse(new Pen(config_color.Obs_Border), leftupperX, leftupperY, obsSize, obsSize);
-                    g.DrawString(text, new Font(font, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftupperX + obsSize, leftupperY);
+                    g.DrawEllipse(new Pen(config_color.Obs_Border), leftUpperX, leftUpperY, obsSize, obsSize);
+                    g.DrawString(text, new Font(font!, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftUpperX + obsSize, leftUpperY);
                 }
-                infotextS.Reverse();
-                infotextN.Reverse();
+
+                var seconds = (drawTime - drawDatas.OriginTime).TotalSeconds;
+                if (config_draw.DrawPSWave && drawDatas.OriginTime != DateTime.MinValue && seconds > 0)
+                {
+                    var (pLatLon, sLatLon) = psd!.GetLatLonList(drawDatas.Depth, seconds, drawDatas.HypoLat, drawDatas.HypoLon, 360);
+                    if (pLatLon.Count > 2)//基本360、失敗時0か1
+                    {
+                        var pPts = pLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
+                        pPts.Add(pPts[0]);
+                        g.DrawPolygon(new Pen(config_color.PSWaveColor.PDrawColor, config_color.PSWaveColor.PWidth), pPts.ToArray());
+                        //if (seconds == 20)
+                            //throw new Exception();
+                    }
+                    if (sLatLon.Count > 2)
+                    {
+                        var sPts = sLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
+                        sPts.Add(sPts[0]);
+                        g.DrawPolygon(new Pen(config_color.PSWaveColor.SDrawColor, config_color.PSWaveColor.SWidth), sPts.ToArray());
+                        g.FillPolygon(new SolidBrush(config_color.PSWaveColor.SFillColor), sPts.ToArray());
+                    }
+                    var hypoLength = config_color.HypoLength / 2;
+                    var hypoPt = new Point((int)((drawDatas.HypoLon - mapLonSta) * zoomW), (int)((mapLatEnd - drawDatas.HypoLat) * zoomH));
+                    g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X - hypoLength, hypoPt.Y - hypoLength, hypoPt.X + hypoLength, hypoPt.Y + hypoLength);
+                    g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X + hypoLength, hypoPt.Y - hypoLength, hypoPt.X - hypoLength, hypoPt.Y + hypoLength);
+                }
+
+                infoTextS.Reverse();
+                infoTextN.Reverse();
 
                 g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, 0, mapWmS, mapS);
-                g.DrawString(infohead, new Font(font, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
-                var infotextI = 0;
-                for (var infoy = mapD20; infoy < mapS && infotextI < infotextS.Count; infoy += infotextHei)
+                g.DrawString(infoHead, new Font(font!, mapD30, GraphicsUnit.Pixel), textColor, mapS, 0);
+                var infoTextI = 0;
+                for (var infoY = mapD20; infoY < mapS && infoTextI < infoTextS.Count; infoY += infoTextHei)
                 {
-                    g.DrawString((infotextS[infotextI] >= 0 ? " " : "") + infotextS[infotextI].ToString("F1"), new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoy);
-                    g.DrawString(infotextN[infotextI], new Font(font, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoy);
-                    g.FillRectangle(new SolidBrush(Shindo2Color_Int(infotextS[infotextI])), mapD60p, infoy, infotextHei, infotextHei);
-                    g.FillRectangle(new SolidBrush(Shindo2Color_Kmoni(infotextS[infotextI])), mapD60p + mapD180 + infotextHei, infoy, infotextHei, infotextHei);
-                    infotextI++;
+                    g.DrawString((infoTextS[infoTextI] >= 0 ? " " : "") + infoTextS[infoTextI].ToString("F1"), new Font(font!, mapD36, GraphicsUnit.Pixel), textColor, mapD8p, infoY);
+                    g.DrawString(infoTextN[infoTextI], new Font(font!, mapD36, GraphicsUnit.Pixel), textColor, mapD5p, infoY);
+                    g.FillRectangle(new SolidBrush(Shindo2Color_Int(infoTextS[infoTextI])), mapD60p, infoY, infoTextHei, infoTextHei);
+                    g.FillRectangle(new SolidBrush(Shindo2Color_Kmoni(infoTextS[infoTextI])), mapD60p + mapD180 + infoTextHei, infoY, infoTextHei, infoTextHei);
+                    infoTextI++;
                 }
                 g.DrawLine(new Pen(textColor, mapD1080), mapS, mapD20, img.Width, mapD20);
                 g.DrawLine(new Pen(textColor, mapD1080), mapD16p, mapD16p, img.Width, mapS);
 
                 g.FillRectangle(new SolidBrush(config_color.InfoBack), mapS, mapSmMH, mapWmS, mapS);
                 g.DrawLine(new Pen(textColor, mapD1080), mapS, mapSmMH, img.Width, mapSmMH);
-                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, mapS, mapSmMH);
-                g.DrawString("地図データ:気象庁", new Font(font, mapD28i, GraphicsUnit.Pixel), textColor, img.Width - mdsize.Width, mapSmMH);
+                g.DrawString(drawTime.ToString("yyyy/MM/dd HH:mm:ss.ff"), new Font(font!, mapD28i, GraphicsUnit.Pixel), textColor, mapS, mapSmMH);
+                g.DrawString("地図データ:気象庁", new Font(font!, mapD28i, GraphicsUnit.Pixel), textColor, img.Width - mdSize.Width, mapSmMH);
                 var savePath = $"{saveDir}\\{nowP:d4}.png";
                 img.Save(savePath, ImageFormat.Png);
             }
@@ -273,7 +247,6 @@ namespace KmoniReproducer
                 pro.WaitForExit();
                 goto remake;
             }
-#endif
         }
 
 #pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
@@ -308,7 +281,7 @@ namespace KmoniReproducer
 
             for (var i = 1; i <= mapType; i++)
             {
-                var mapjson = MapSelecter((Config_Map.MapKind)(i * 10 + mapDetail));
+                var mapjson = MapSelector((Config_Map.MapKind)(i * 10 + mapDetail));
                 using var gPath = new GraphicsPath();
                 gPath.StartFigure();
                 foreach (var mapjson_feature in mapjson["features"].AsArray())
@@ -335,8 +308,8 @@ namespace KmoniReproducer
                     g.FillPath(new SolidBrush(config_color.Map.Japan), gPath);
                 g.DrawPath(new Pen(config_color.Map.Japan_Border, config_map.MapSize / 1080f * (mapType + 1 - i)), gPath);
             }
-            //var mdsize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
-            //g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdsize.Width, config_map.MapSize - mdsize.Height);
+            //var mdSize = g.MeasureString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel));
+            //g.DrawString("地図データ:気象庁", new Font(font, config_map.MapSize / 28, GraphicsUnit.Pixel), new SolidBrush(config_color.Text), config_map.MapSize - mdSize.Width, config_map.MapSize - mdSize.Height);
             return mapImg;
         }
 #pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
@@ -349,7 +322,7 @@ namespace KmoniReproducer
         /// </summary>
         /// <returns>設定に対応する地図データ(JsonNode)</returns>
         /// <exception cref="Exception">マップ設定が正しくない場合</exception>
-        public static JsonNode MapSelecter()
+        public static JsonNode MapSelector()
         {
             return config_map.MapType switch
             {
@@ -371,7 +344,7 @@ namespace KmoniReproducer
         /// <param name="mapKind">マップの種類</param>
         /// <returns>引数に対応する地図データ(JsonNode)</returns>
         /// <exception cref="Exception">マップ設定が正しくない場合</exception>
-        public static JsonNode MapSelecter(Config_Map.MapKind mapKind)
+        public static JsonNode MapSelector(Config_Map.MapKind mapKind)
         {
             return mapKind switch
             {
@@ -406,25 +379,25 @@ namespace KmoniReproducer
         {
             shindo ??= double.NaN;
             if (shindo < 0.5)
-                return config_color.IntColor.S0;
+                return config_color.ShindoColor.S0;
             else if (shindo < 1.5)
-                return config_color.IntColor.S1;
+                return config_color.ShindoColor.S1;
             else if (shindo < 2.5)
-                return config_color.IntColor.S2;
+                return config_color.ShindoColor.S2;
             else if (shindo < 3.5)
-                return config_color.IntColor.S3;
+                return config_color.ShindoColor.S3;
             else if (shindo < 4.5)
-                return config_color.IntColor.S4;
+                return config_color.ShindoColor.S4;
             else if (shindo < 5.0)
-                return config_color.IntColor.S5;
+                return config_color.ShindoColor.S5;
             else if (shindo < 5.5)
-                return config_color.IntColor.S6;
+                return config_color.ShindoColor.S6;
             else if (shindo < 6.0)
-                return config_color.IntColor.S7;
+                return config_color.ShindoColor.S7;
             else if (shindo < 6.5)
-                return config_color.IntColor.S8;
+                return config_color.ShindoColor.S8;
             else if (shindo >= 6.5)
-                return config_color.IntColor.S9;
+                return config_color.ShindoColor.S9;
             else
                 return Datas.Shindo2KColor[double.NaN];
         }
@@ -455,7 +428,7 @@ namespace KmoniReproducer
         }
 
         /// <summary>
-        /// doubleの震度をintに変換します。-0.5以下で-1, 5弱で5, 5強で6, 失敗時int.MinValueです。
+        /// doubleの震度を intに変換します。-0.5以下で-1, 5弱で5, 5強で6, 失敗時 int.MinValueです。
         /// </summary>
         /// <param name="shindo">変換する震度</param>
         /// <returns>震度(int.MinValue,-1~9)</returns>
@@ -536,6 +509,10 @@ namespace KmoniReproducer
         /// </summary>
         public bool Obs_UseIntColor { get; set; } = false;
 
+        /// <summary>
+        /// PS波到達円を描画するか
+        /// </summary>
+        public bool DrawPSWave { get; set; } = true;
     }
 
     /// <summary>
@@ -659,12 +636,12 @@ namespace KmoniReproducer
         /// <summary>
         /// 震度別色
         /// </summary>
-        public ShindoColor IntColor { get; set; } = new();
+        public IntColor ShindoColor { get; set; } = new();
 
         /// <summary>
         /// 震度別色
         /// </summary>
-        public class ShindoColor
+        public class IntColor
         {
             /// <summary>
             /// 震度0
@@ -716,6 +693,57 @@ namespace KmoniReproducer
             /// </summary>
             public Color S9 { get; set; } = Color.FromArgb(100, 0, 100);
         }
+
+        /// <summary>
+        /// 震央マークの色
+        /// </summary>
+        public Color HypoColor { get; set; } = Color.FromArgb(191, 255, 0, 0);
+
+        /// <summary>
+        /// 震央マークの長さ
+        /// </summary>
+        public float HypoLength { get; set; } = 20f;
+
+        /// <summary>
+        /// 震央マークの太さ
+        /// </summary>
+        public float HypoWidth { get; set; } = 4f;
+
+        /// <summary>
+        /// P波S波の色
+        /// </summary>
+        public PSWColor PSWaveColor { get; set; } = new();
+
+        /// <summary>
+        /// P波S波の色
+        /// </summary>
+        public class PSWColor
+        {
+            /// <summary>
+            /// P波の色
+            /// </summary>
+            public Color PDrawColor { get; set; } = Color.FromArgb(191, 0, 0, 255);
+
+            /// <summary>
+            /// P波の太さ
+            /// </summary>
+            public float PWidth { get; set; } = 2f;
+
+            /// <summary>
+            /// P波の色
+            /// </summary>
+            public Color SDrawColor { get; set; } = Color.FromArgb(191, 255, 0, 0);
+
+            /// <summary>
+            /// P波の塗りつぶし色
+            /// </summary>
+            public Color SFillColor { get; set; } = Color.FromArgb(63, 255, 0, 0);
+
+            /// <summary>
+            /// P波の太さ
+            /// </summary>
+            public float SWidth { get; set; } = 2f;
+        }
     }
 
     /// <summary>
@@ -723,13 +751,16 @@ namespace KmoniReproducer
     /// </summary>
     public class ColorConverter : JsonConverter<Color>
     {
-        public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)//オーバーライド  ▼・ӡ・▼    ▼・v・▼    ▼・_・▼
         {
-            var colorString = reader.GetString();
-#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
+            var colorString = reader.GetString() ?? throw new ArgumentException("値が正しくありません。");
             var argbValues = colorString.Split(',');
-#pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
-            return Color.FromArgb(int.Parse(argbValues[0]), int.Parse(argbValues[1]), int.Parse(argbValues[2]), int.Parse(argbValues[3]));
+            if (argbValues.Length == 3)
+                return Color.FromArgb(int.Parse(argbValues[0]), int.Parse(argbValues[1]), int.Parse(argbValues[2]));
+            else if (argbValues.Length == 4)
+                return Color.FromArgb(int.Parse(argbValues[0]), int.Parse(argbValues[1]), int.Parse(argbValues[2]), int.Parse(argbValues[3]));
+            else
+                throw new ArgumentException("値が正しくありません。");
         }
 
         public override void Write(Utf8JsonWriter writer, Color value, JsonSerializerOptions options)

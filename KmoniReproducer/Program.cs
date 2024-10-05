@@ -1,6 +1,7 @@
 ﻿using ICSharpCode.SharpZipLib.Tar;
 using KmoniReproducer.Properties;
 using MathNet.Numerics.IntegralTransforms;
+using PSWaveDistance;
 using System.Drawing;
 using System.Drawing.Text;
 using System.IO.Compression;
@@ -45,22 +46,45 @@ namespace KmoniReproducer
         /// <summary>
         /// 描画用フォント
         /// </summary>
-#pragma warning disable CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
-        public static FontFamily font;
-#pragma warning restore CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
+        public static FontFamily? font;
 
         public static Config_Color config_color = new();
         public static Config_Map config_map = new();
         public static Config_Draw config_draw = new();
 
+        public static PSDistances? psd;
+
         public static JsonSerializerOptions serializeIntend = new() { WriteIndented = true };
 
         static void Main(/*string[] args*/)//todo:加速度データ格納を1Data_AccにNS,EW,UD全部入れるように
         {
+            /*
+             * C:\Ichihai1415\source\vs\KmoniReproducer\KmoniReproducer\bin\x64\Debug\net8.0\output\shindo\20240101161000-1047-0.1s-10s
+             * 発生日時を入力してください。例:2024/01/01 00:00:00
+             * 2024/01/01 16:10:22.5
+             * 震源の緯度を入力してください。例:35.79
+             * 37.495
+             * 震源の経度を入力してください。例:135.79
+             * 137.27
+             * 震源の深さを入力してください。例:12.3
+             * 16
+             * 
+             * 2024/01/01 16:10:20
+             * 3
+             * (描画時刻の)最大震度との差での自動ズームをする場合、範囲に入れる最大震度との差を入力してください。 -9で無効、10以上で全 表示です。例1:-9 例2:(最大震度5弱で震度3まで(5弱,4,3)の場合):3
+             * 4
+             * 観測点円の色に強震モニタ色ではなく震度階級別色を利用しますか？(右側では両方描画します) (y/n)
+             * n
+             * P波・S波の到達円を描画しますか？(発生時間が正しく設定されていることを確認してください) (y/n)
+             * y
+             * 
+             * 
+             */
+
             ConWrite("\n" +
                 "  ////////////////////////////////////////////////////////\n" +
                 "  //                                                    //\n" +
-                "  //  KmoniReproducer v1.0.1                            //\n" +
+                "  //  KmoniReproducer v1.0.2                            //\n" +
                 "  //    https://github.com/Ichihai1415/KmoniReproducer  //\n" +
                 "  //                                                    //\n" +
                 "  ////////////////////////////////////////////////////////\n" +
@@ -116,6 +140,10 @@ namespace KmoniReproducer
                 return;
             }
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 地図データを読み込みました。", ConsoleColor.Blue);
+
+            psd = new PSDistances();
+            ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 到達円データを読み込みました。", ConsoleColor.Blue);
+
             ConWrite($"RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
 
             ConWrite("【注意/お知らせ】README(https://github.com/Ichihai1415/KmoniReproducer/blob/release/KmoniReproducer/README.md)、Wiki(https://github.com/Ichihai1415/KmoniReproducer/wiki)を確認してください。\n特に設定中の中断機能やエラー対策はしていません。入力をやり直したい場合適当な文字を入れればエラーで最初に戻ります。" +
@@ -160,6 +188,7 @@ namespace KmoniReproducer
                         "> 3.震度データ(独自形式)出力\n" +
                         "> 4.震度データ(独自形式)読み込み\n" +
                         "> 5.描画\n" +
+                        "> 6.地震データ(発生日時・震源情報)編集\n" +
                         "> 8.tarファイルの展開\n" +
                         "> 9.データのクリア\n" +
                         "> 0.終了");
@@ -179,9 +208,9 @@ namespace KmoniReproducer
                                     break;
                                 case "2":
                                     if (data == null)
-                                        data = GetDataFromJMAcsv();
+                                        data = GetDataFromJMACSV();
                                     else
-                                        data.AddObsDatas(GetDataFromJMAcsv(), false);
+                                        data.AddObsDatas(GetDataFromJMACSV(), false);
                                     break;
                                 default:
                                     ConWrite("値が不正です。", ConsoleColor.Red);
@@ -217,20 +246,25 @@ namespace KmoniReproducer
                             }
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
                             var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
+
+
                             var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
-#pragma warning disable CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
-#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
+                            if (paramNode == null)
+                            {
+                                ConWrite($"パラメータファイル({dir_in}\\_param.json)の解析に失敗しました。", ConsoleColor.Red);
+                                break;
+                            }
                             data_Draw = new Data_Draw()
                             {
                                 CalStartTime = DateTime.Parse(paramNode["CalStartTime"]?.ToString() ?? DateTime.MinValue.ToString()),
+                                OriginTime = DateTime.Parse(paramNode["OriginTime"]?.ToString() ?? DateTime.MinValue.ToString()),
                                 HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
                                 HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
+                                Depth = double.Parse(paramNode["Depth"]?.ToString() ?? "0"),
                                 CalPeriod = TimeSpan.Parse(paramNode["CalPeriod"]?.ToString() ?? "00:00:00"),
                                 TotalCalPeriodSec = int.Parse(paramNode["TotalCalPeriodSec"]?.ToString() ?? "-1"),
-                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v)
+                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v!)
                             };
-#pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
-#pragma warning restore CS8619 // 値における参照型の Null 許容性が、対象の型と一致しません。
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                             break;
                         case "5":
@@ -257,7 +291,8 @@ namespace KmoniReproducer
                                 AutoZoomMin = int.Parse(ConAsk("<自動ズームの方法は 最小震度,最大震度との差 の2通りあります。対象のものがない場合後に設定する緯度経度の始点終点で描画されます。>\n" +
                                 "最小震度での自動ズームをする場合、範囲に入れる最小震度を入力してください。最大震度との差での対象のものが無ければこの範囲になります。 -9で無効、計測震度に対する値: ~-0.5は-1、-0.5~0.5は0, ... 4.5~5.0(5弱)は5, 5.0~5.5(5強)は6, ...です。例1:-9 例2:(震度4の場合):4", true, "-9")),
                                 AutoZoomMinDif = int.Parse(ConAsk("(描画時刻の)最大震度との差での自動ズームをする場合、範囲に入れる最大震度との差を入力してください。 -9で無効、10以上で全表示です。例1:-9 例2:(最大震度5弱で震度3まで(5弱,4,3)の場合):3", true, "-9")),
-                                Obs_UseIntColor = ConAsk("観測点円の色に強震モニタ色ではなく震度階級別色を利用しますか？(右側では両方描画します) (y/n)", true, "n") == "y"
+                                Obs_UseIntColor = ConAsk("観測点円の色に強震モニタ色ではなく震度階級別色を利用しますか？(右側では両方描画します) (y/n)", true, "n") == "y",
+                                DrawPSWave = ConAsk("P波・S波の到達円を描画しますか？(発生時間が正しく設定されていることを確認してください) (y/n)", true, "y") == "y"
                             };
                             config_map = new Config_Map
                             {
@@ -282,6 +317,28 @@ namespace KmoniReproducer
 
                             Draw(data_Draw);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了", ConsoleColor.Blue);
+                            break;
+                        case "6":
+                            var originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
+                            var hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
+                            var hypoLon_tmp = double.Parse(ConAsk("震源の経度を入力してください。例:135.79", true, "-200"));
+                            var depth_tmp = double.Parse(ConAsk("震源の深さを入力してください。例:12.3", true, "-200"));
+                            if (ConAsk("加速度データに上書きしてもいいですか？ (y/n)") == "y")
+                            {
+                                data ??= new Data();
+                                data.OriginTime = originTime_tmp == DateTime.MinValue ? data.OriginTime : originTime_tmp;
+                                data.HypoLat = hypoLat_tmp == -200d ? data.HypoLat : hypoLat_tmp;
+                                data.HypoLon = hypoLon_tmp == -200d ? data.HypoLon : hypoLon_tmp;
+                                data.Depth = depth_tmp == -200d ? data.Depth : depth_tmp;
+                            }
+                            if (data_Draw != null)
+                                if (ConAsk("震度データに上書きしてもいいですか？ (y/n)") == "y")
+                                {
+                                    data_Draw.OriginTime = originTime_tmp == DateTime.MinValue ? data_Draw.OriginTime : originTime_tmp;
+                                    data_Draw.HypoLat = hypoLat_tmp == -200d ? data_Draw.HypoLat : hypoLat_tmp;
+                                    data_Draw.HypoLon = hypoLon_tmp == -200d ? data_Draw.HypoLon : hypoLon_tmp;
+                                    data_Draw.Depth = depth_tmp == -200d ? data_Draw.Depth : depth_tmp;
+                                }
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -336,9 +393,9 @@ namespace KmoniReproducer
         /// 気象庁加速度データをDataに格納します。
         /// </summary>
         /// <returns>読み込んだデータ</returns>
-        public static Data? GetDataFromJMAcsv()
+        public static Data? GetDataFromJMACSV()//todo:スペルチェッカー無視に\u0000を(テスト中
         {
-            var dir = ConAsk("気象庁の強震データ(.csv)があるフォルダ名を入力してください。指定したフォルダのすべてのcsvファイルを読み込みます。").Replace("\"", "");
+            var dir = ConAsk("気象庁の強震データ(.csv)があるフォルダ名を入力してください。指定したフォルダのすべての\u0000csvファイルを読み込みます。").Replace("\"", "");
             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 取得中...", ConsoleColor.Blue);
             var files = Directory.EnumerateFiles(dir, "*.csv", SearchOption.AllDirectories).ToArray();
             if (files.Length == 0)
@@ -349,14 +406,16 @@ namespace KmoniReproducer
             DateTime? originTime_tmp = null;
             double? hypoLat_tmp = null;
             double? hypoLon_tmp = null;
-            if (ConAsk("地震データ(発生日時、震源緯度経度)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合あればそれが優先されます。", true, "n") == "y")
+            double? depth_tmp = null;
+            if (ConAsk("地震データ(発生日時、震源情報)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合あればそれが優先されます。", true, "n") == "y")
             {
                 originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
                 hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
                 hypoLon_tmp = double.Parse(ConAsk("震源の経度を入力してください。例:135.79", true, "-200"));
+                depth_tmp = double.Parse(ConAsk("震源の深さを入力してください。例:135.79", true, "-200"));
             }
-            return JMAcsv2Data(files, originTime_tmp == DateTime.MinValue ? null : originTime_tmp,
-                hypoLat_tmp == -200d ? null : hypoLat_tmp, hypoLon_tmp == -200d ? null : hypoLon_tmp);//.Where(x => !x.EndsWith("level.csv")).ToArray()
+            return JMACSV2Data(files, originTime_tmp == DateTime.MinValue ? null : originTime_tmp,
+                hypoLat_tmp == -200d ? null : hypoLat_tmp, hypoLon_tmp == -200d ? null : hypoLon_tmp, depth_tmp == -200d ? null : depth_tmp);//.Where(x => !x.EndsWith("level.csv")).ToArray()
         }
 
         /// <summary>
@@ -658,8 +717,10 @@ namespace KmoniReproducer
                 $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
                 $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}," +
                 $"\"CalPeriod\":\"{data_Draw.CalPeriod}\"," +
+                $"\"OriginTime\":\"{data_Draw.OriginTime}\"," +
                 $"\"HypoLat\":{data_Draw.HypoLat}," +
-                $"\"HypoLon\":{data_Draw.HypoLon}" +
+                $"\"HypoLon\":{data_Draw.HypoLon}," +
+                $"\"Depth\":{data_Draw.Depth}" +
                 "}");
             foreach (var obsData in data_Draw.Datas_Draw)
                 File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));//観測点名によっては失敗するかも
