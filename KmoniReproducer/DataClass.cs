@@ -76,7 +76,7 @@ namespace KmoniReproducer
                     data.HypoLat = hypoLat.Value;
                 if (hypoLon != null)
                     data.HypoLon = hypoLon.Value;
-                if(depth != null)
+                if (depth != null)
                     data.Depth = depth.Value;
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                 ConWrite($"dataCount(acc):{data.ObsDatas.Length}(points:{data.ObsDatas.Length / 3})  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
@@ -229,7 +229,7 @@ namespace KmoniReproducer
                     var stationLon = double.Parse(stationLonSt);
                     var samplingFreq = int.Parse(fileTexts[3].Replace(" ", "").Replace("Hz", ""));
                     var recordTime = new DateTime(initTimeInts[0], initTimeInts[1], initTimeInts[2], initTimeInts[3], initTimeInts[4], initTimeInts[5]);
-                    var accs = fileTexts.Skip(7).Select(x => x.Replace(" ", "").Split(',')).ToArray();
+                    var accs = fileTexts.Skip(7).Select(x => x.Replace(" ", "").Split(',', StringSplitOptions.RemoveEmptyEntries)).Where(x => x.Length != 0).ToArray();
                     var obsData0 = new ObsData
                     {
                         StationName = stationName,
