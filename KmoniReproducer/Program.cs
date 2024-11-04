@@ -224,7 +224,7 @@ namespace KmoniReproducer
                                 break;
                             }
                             var autoSave = ConAsk("計算後自動で保存しますか？(y/n) 既定:y", true, "y") == "y";
-                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {(data.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--" : data.OriginTime)} となっています。例:2024/01/01 00:00:00", data.OriginTime != DateTime.MinValue, data.OriginTime.ToString()));
+                            var startT2 = DateTime.Parse(ConAsk($"計算開始日時を入力してください。発生日時は {(data.OriginTime == DateTime.MinValue ? "----/--/-- --:--:--.-" : data.OriginTime.ToString("yyyy/MM/dd HH:mm:ss.f"))} となっています。例:2024/01/01 00:00:00.0", data.OriginTime != DateTime.MinValue, data.OriginTime.ToString("yyyy/MM/dd HH:mm:ss.f")));
                             Acc2JI(data, out var data_Draw_tmp,
                                 startT2,
                                 startT2.AddSeconds(int.Parse(ConAsk($"計算開始日時から終了までの時間(秒)を入力してください。例:300", true, "300"))),
@@ -261,7 +261,7 @@ namespace KmoniReproducer
                                 HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
                                 HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
                                 Depth = double.Parse(paramNode["Depth"]?.ToString() ?? "0"),
-                                CalPeriod = TimeSpan.Parse(paramNode["CalPeriod"]?.ToString() ?? "00:00:00"),
+                                CalPeriod = TimeSpan.Parse(paramNode["CalPeriod"]?.ToString() ?? "00:00:01"),
                                 TotalCalPeriodSec = int.Parse(paramNode["TotalCalPeriodSec"]?.ToString() ?? "-1"),
                                 Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v!)
                             };
@@ -280,7 +280,7 @@ namespace KmoniReproducer
                             }
                             var calSpanCk = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
                             var calSpan = calSpanCk[1] - calSpanCk[0];
-                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--" : data_Draw.CalStartTime)} となっています。例:2024/01/01 00:00:00", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString()));
+                            var startT5 = DateTime.Parse(ConAsk($"描画開始日時を入力してください。計算開始日時は {(data_Draw.CalStartTime == DateTime.MinValue ? "----/--/-- --:--:--.-" : data_Draw.CalStartTime.ToString("yyyy/MM/dd HH:mm:ss.f"))} となっています。例:2024/01/01 00:00:00.0", data_Draw.CalStartTime != DateTime.MinValue, data_Draw.CalStartTime.ToString("yyyy/MM/dd HH:mm:ss.f")));
                             config_draw = new Config_Draw
                             {
                                 StartTime = startT5,
@@ -319,7 +319,7 @@ namespace KmoniReproducer
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 画像出力完了", ConsoleColor.Blue);
                             break;
                         case "6":
-                            var originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
+                            var originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00.0", true, DateTime.MinValue.ToString()));
                             var hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
                             var hypoLon_tmp = double.Parse(ConAsk("震源の経度を入力してください。例:135.79", true, "-200"));
                             var depth_tmp = double.Parse(ConAsk("震源の深さを入力してください。例:12.3", true, "-200"));
@@ -409,7 +409,7 @@ namespace KmoniReproducer
             double? depth_tmp = null;
             if (ConAsk("地震データ(発生日時、震源情報)を設定しますか？(y/n) ※K-NET,KiK-netのものを読み込む場合あればそれが優先されます。", true, "n") == "y")
             {
-                originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00", true, DateTime.MinValue.ToString()));
+                originTime_tmp = DateTime.Parse(ConAsk("発生日時を入力してください。例:2024/01/01 00:00:00.0", true, DateTime.MinValue.ToString()));
                 hypoLat_tmp = double.Parse(ConAsk("震源の緯度を入力してください。例:35.79", true, "-200"));
                 hypoLon_tmp = double.Parse(ConAsk("震源の経度を入力してください。例:135.79", true, "-200"));
                 depth_tmp = double.Parse(ConAsk("震源の深さを入力してください。例:135.79", true, "-200"));
