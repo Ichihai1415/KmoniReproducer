@@ -186,29 +186,39 @@ namespace KmoniReproducer
                     g.DrawString(text, new Font(font!, obsSize * 3 / 4, GraphicsUnit.Pixel), textColor, leftUpperX + obsSize, leftUpperY);
                 }
 
-                var seconds = (drawTime - drawDatas.OriginTime).TotalSeconds;
-                if (config_draw.DrawPSWave && drawDatas.OriginTime != DateTime.MinValue && seconds > 0)
+
+                if (config_draw.DrawPSWave)
                 {
-                    var (pLatLon, sLatLon) = psd!.GetLatLonList(drawDatas.Depth, seconds, drawDatas.HypoLat, drawDatas.HypoLon, 360);
-                    if (pLatLon.Count > 2)//基本360、失敗時0か1
+                    var eqs = drawDatas.Earthquakes.Length == 0 ? [drawDatas.MainEq] : drawDatas.Earthquakes;
+
+                    foreach (var eq in eqs)
                     {
-                        var pPts = pLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
-                        pPts.Add(pPts[0]);
-                        g.DrawPolygon(new Pen(config_color.PSWaveColor.PDrawColor, config_color.PSWaveColor.PWidth), pPts.ToArray());
-                        //if (seconds == 20)
-                            //throw new Exception();
+                        var seconds = (drawTime - eq.OriginTime).TotalSeconds;
+                        if (eq.OriginTime != DateTime.MinValue && seconds > 0)
+                        {
+                            var (pLatLon, sLatLon) = psd!.GetLatLonList(eq.Depth, seconds, eq.HypoLat, eq.HypoLon, 360);
+                            if (pLatLon.Count > 2)//基本360、失敗時0か1
+                            {
+                                var pPts = pLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
+                                pPts.Add(pPts[0]);
+                                g.DrawPolygon(new Pen(config_color.PSWaveColor.PDrawColor, config_color.PSWaveColor.PWidth), pPts.ToArray());
+                                //if (seconds == 20)
+                                //throw new Exception();
+                            }
+                            if (sLatLon.Count > 2)
+                            {
+                                var sPts = sLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
+                                sPts.Add(sPts[0]);
+                                g.DrawPolygon(new Pen(config_color.PSWaveColor.SDrawColor, config_color.PSWaveColor.SWidth), sPts.ToArray());
+                                if (config_color.PSWaveColor.SFillColor.A != 0)
+                                    g.FillPolygon(new SolidBrush(config_color.PSWaveColor.SFillColor), sPts.ToArray());
+                            }
+                            var hypoLength = config_color.HypoLength / 2;
+                            var hypoPt = new Point((int)((eq.HypoLon - mapLonSta) * zoomW), (int)((mapLatEnd - eq.HypoLat) * zoomH));
+                            g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X - hypoLength, hypoPt.Y - hypoLength, hypoPt.X + hypoLength, hypoPt.Y + hypoLength);
+                            g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X + hypoLength, hypoPt.Y - hypoLength, hypoPt.X - hypoLength, hypoPt.Y + hypoLength);
+                        }
                     }
-                    if (sLatLon.Count > 2)
-                    {
-                        var sPts = sLatLon.Select(x => new Point((int)((x.Lon - mapLonSta) * zoomW), (int)((mapLatEnd - x.Lat) * zoomH))).ToList()!;
-                        sPts.Add(sPts[0]);
-                        g.DrawPolygon(new Pen(config_color.PSWaveColor.SDrawColor, config_color.PSWaveColor.SWidth), sPts.ToArray());
-                        g.FillPolygon(new SolidBrush(config_color.PSWaveColor.SFillColor), sPts.ToArray());
-                    }
-                    var hypoLength = config_color.HypoLength / 2;
-                    var hypoPt = new Point((int)((drawDatas.HypoLon - mapLonSta) * zoomW), (int)((mapLatEnd - drawDatas.HypoLat) * zoomH));
-                    g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X - hypoLength, hypoPt.Y - hypoLength, hypoPt.X + hypoLength, hypoPt.Y + hypoLength);
-                    g.DrawLine(new Pen(config_color.HypoColor, config_color.HypoWidth), hypoPt.X + hypoLength, hypoPt.Y - hypoLength, hypoPt.X - hypoLength, hypoPt.Y + hypoLength);
                 }
 
                 infoTextS.Reverse();
@@ -737,7 +747,7 @@ namespace KmoniReproducer
             /// <summary>
             /// P波の塗りつぶし色
             /// </summary>
-            public Color SFillColor { get; set; } = Color.FromArgb(63, 255, 0, 0);
+            public Color SFillColor { get; set; } = Color.FromArgb(31, 255, 0, 0);
 
             /// <summary>
             /// P波の太さ

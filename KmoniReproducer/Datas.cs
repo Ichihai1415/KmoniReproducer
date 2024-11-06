@@ -1876,6 +1876,6 @@ namespace KmoniReproducer
         /// K-NET,KiK-netの観測点コードと名称
         /// </summary>
         /// <remarks>起動時<c>KNETKiKnetObsPoints_PrefName</c>を参照する</remarks>
-        public static Dictionary<string, string> KNETKiKnetObsPoints = [];
+        internal static Dictionary<string, string> KNETKiKnetObsPoints = [];
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Json.Serialization;
 using static KmoniReproducer.Program;
 
 namespace KmoniReproducer
@@ -331,10 +332,10 @@ namespace KmoniReproducer
         /// <param name="data">一地震での加速度データと地震データ</param>
         public Data_Draw(Data data)
         {
-            OriginTime = data.OriginTime;
-            HypoLat = data.HypoLat;
-            HypoLon = data.HypoLon;
-            Depth = data.Depth;
+            MainEq.OriginTime = data.OriginTime;
+            MainEq.HypoLat = data.HypoLat;
+            MainEq.HypoLon = data.HypoLon;
+            MainEq.Depth = data.Depth;
         }
 
         /// <summary>
@@ -353,27 +354,41 @@ namespace KmoniReproducer
         /// <summary>
         /// 計算開始時刻
         /// </summary>
+        [JsonConverter(typeof(DateTimeJsonConverter))]
         public DateTime CalStartTime { get; set; } = DateTime.MinValue;
+        //代表的な震源情報(earthquakesの方にデータがあれば)
+        public Earthquake MainEq { get; set; } = new();
+
 
         /// <summary>
-        /// 発生時刻
+        /// 地震リスト(EEW表示用)
         /// </summary>
-        public DateTime OriginTime { get; set; } = DateTime.MinValue;
+        public Earthquake[] Earthquakes { get; set; } = [];
 
-        /// <summary>
-        /// 震源緯度
-        /// </summary>
-        public double HypoLat { get; set; } = -200d;
+        public class Earthquake
+        {
+            /// <summary>
+            /// 発生時刻
+            /// </summary>
+            [JsonConverter(typeof(DateTimeJsonConverter))]
+            public DateTime OriginTime { get; set; } = DateTime.MinValue;
 
-        /// <summary>
-        /// 震源経度
-        /// </summary>
-        public double HypoLon { get; set; } = -200d;
+            /// <summary>
+            /// 震源緯度
+            /// </summary>
+            public double HypoLat { get; set; } = -200d;
 
-        /// <summary>
-        /// 震源深さ
-        /// </summary>
-        public double Depth { get; set; } = -200d;
+            /// <summary>
+            /// 震源経度
+            /// </summary>
+            public double HypoLon { get; set; } = -200d;
+
+            /// <summary>
+            /// 震源深さ
+            /// </summary>
+            public double Depth { get; set; } = -200d;
+
+        }
 
         /// <summary>
         /// 震度計算時間(通常1分)
@@ -389,6 +404,7 @@ namespace KmoniReproducer
         /// 観測点のデータのリスト
         /// </summary>
         /// <remarks><c>StationName</c>, <c>ObsDataD</c></remarks>
+        [JsonIgnore]
         public Dictionary<string, ObsDataD> Datas_Draw { get; set; } = [];
 
         /// <summary>

@@ -4,12 +4,14 @@ using MathNet.Numerics.IntegralTransforms;
 using PSWaveDistance;
 using System.Drawing;
 using System.Drawing.Text;
+using System.Globalization;
 using System.IO.Compression;
 using System.Numerics;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using static KmoniReproducer.Data;
 using static KmoniReproducer.DrawImg;
 
@@ -189,6 +191,7 @@ namespace KmoniReproducer
                         "> 4.震度データ(独自形式)読み込み\n" +
                         "> 5.描画\n" +
                         "> 6.地震データ(発生日時・震源情報)編集\n" +
+                        "> 7.<PS波描画用(複数可能)>地震データ(発生日時・震源情報)編集\n" +
                         "> 8.tarファイルの展開\n" +
                         "> 9.データのクリア\n" +
                         "> 0.終了");
@@ -246,36 +249,19 @@ namespace KmoniReproducer
                             }
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
                             var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
-
-
-                            var paramNode = JsonNode.Parse(File.ReadAllText($"{dir_in}\\_param.json"));
-                            if (paramNode == null)
-                            {
-                                ConWrite($"パラメータファイル({dir_in}\\_param.json)の解析に失敗しました。", ConsoleColor.Red);
-                                break;
-                            }
-                            data_Draw = new Data_Draw()
-                            {
-                                CalStartTime = DateTime.Parse(paramNode["CalStartTime"]?.ToString() ?? DateTime.MinValue.ToString()),
-                                OriginTime = DateTime.Parse(paramNode["OriginTime"]?.ToString() ?? DateTime.MinValue.ToString()),
-                                HypoLat = double.Parse(paramNode["HypoLat"]?.ToString() ?? "0"),
-                                HypoLon = double.Parse(paramNode["HypoLon"]?.ToString() ?? "0"),
-                                Depth = double.Parse(paramNode["Depth"]?.ToString() ?? "0"),
-                                CalPeriod = TimeSpan.Parse(paramNode["CalPeriod"]?.ToString() ?? "00:00:01"),
-                                TotalCalPeriodSec = int.Parse(paramNode["TotalCalPeriodSec"]?.ToString() ?? "-1"),
-                                Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k.StationName, v => v!)
-                            };
+                            data_Draw = JsonSerializer.Deserialize<Data_Draw>(File.ReadAllText($"{dir_in}\\_param.json"))!;
+                            data_Draw.Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k!.StationName, v => v!);
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
                             break;
                         case "5":
                             if (data_Draw == null)
                             {
-                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                ConWrite("先に震度を計算または読み込みしてください。", ConsoleColor.Red);
                                 break;
                             }
                             if (data_Draw.Datas_Draw.Count == 0)
                             {
-                                ConWrite("先に震度を計算してください。", ConsoleColor.Red);
+                                ConWrite("先に震度を計算または読み込みしてください。", ConsoleColor.Red);
                                 break;
                             }
                             var calSpanCk = data_Draw.Datas_Draw.Values.First().TimeInt.Keys.ToArray();
@@ -297,9 +283,9 @@ namespace KmoniReproducer
                             config_map = new Config_Map
                             {
                                 MapSize = int.Parse(ConAsk("マップサイズ(画像の高さ)を入力してください。幅は16:9になるように計算されます。例:1080", true, "1080")),
-                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は {(data_Draw.HypoLat == -200d ? "--" : data_Draw.HypoLat)} となっています。", true, "22.5")),
+                                LatSta = double.Parse(ConAsk($"緯度の始点(地図の下端)を入力してください。例:22.5 震源緯度は {(data_Draw.MainEq.HypoLat == -200d ? "--" : data_Draw.MainEq.HypoLat)} となっています。", true, "22.5")),
                                 LatEnd = double.Parse(ConAsk("緯度の終点(地図の上端)を入力してください。例:47.5", true, "47.5")),
-                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は {(data_Draw.HypoLon == -200d ? "--" : data_Draw.HypoLon)} となっています。", true, "122.5")),
+                                LonSta = double.Parse(ConAsk($"経度の始点(地図の左端)を入力してください。例:122.5 震源経度は {(data_Draw.MainEq.HypoLon == -200d ? "--" : data_Draw.MainEq.HypoLon)} となっています。", true, "122.5")),
                                 LonEnd = double.Parse(ConAsk("経度の終点(地図の右端)を入力してください。例:147.5", true, "147.5")),
                                 MapType = (Config_Map.MapKind)int.Parse(ConAsk("マップの種類(数字)を入力してください。線の太さは種類ごとに固定なため範囲に応じて変えると良いです(全国なら11,12、拡大なら21,22,31,32)。例:11\n" +
                                 "> 11.地震情報／都道府県等 (軽量)\n" +
@@ -334,11 +320,42 @@ namespace KmoniReproducer
                             if (data_Draw != null)
                                 if (ConAsk("震度データに上書きしてもいいですか？ (y/n)") == "y")
                                 {
-                                    data_Draw.OriginTime = originTime_tmp == DateTime.MinValue ? data_Draw.OriginTime : originTime_tmp;
-                                    data_Draw.HypoLat = hypoLat_tmp == -200d ? data_Draw.HypoLat : hypoLat_tmp;
-                                    data_Draw.HypoLon = hypoLon_tmp == -200d ? data_Draw.HypoLon : hypoLon_tmp;
-                                    data_Draw.Depth = depth_tmp == -200d ? data_Draw.Depth : depth_tmp;
+                                    data_Draw.MainEq.OriginTime = originTime_tmp == DateTime.MinValue ? data_Draw.MainEq.OriginTime : originTime_tmp;
+                                    data_Draw.MainEq.HypoLat = hypoLat_tmp == -200d ? data_Draw.MainEq.HypoLat : hypoLat_tmp;
+                                    data_Draw.MainEq.HypoLon = hypoLon_tmp == -200d ? data_Draw.MainEq.HypoLon : hypoLon_tmp;
+                                    data_Draw.MainEq.Depth = depth_tmp == -200d ? data_Draw.MainEq.Depth : depth_tmp;
                                 }
+                            break;
+                        case "7":
+                            if (data_Draw == null)
+                            {
+                                ConWrite("先に震度を計算または読み込みしてください。", ConsoleColor.Red);
+                                break;
+                            }
+                            ConWrite("複数の震源情報を設定できます。それぞれの地震について、発生日時,緯度,経度,深さ のようにコンマ区切りで入力してください。※途中で失敗すると設定されません。例:2024/01/01 00:00:00.0,35.79,135.79,12.3");
+                            var c = 1;
+                            var eqList = new List<Data_Draw.Earthquake>();
+                            while (true)
+                            {
+                                var input = ConAsk(c + "個目の震源情報を入力してください。入力を終了する場合何も入力せずにエンターキーを押してください。", true);
+                                if (string.IsNullOrEmpty(input))
+                                    break;
+                                var s = input.Split(',');
+                                if (s.Length != 4)
+                                {
+                                    ConWrite("入力文字列の形式が正しくありません。コンマは3つあるはずです。", ConsoleColor.Red);
+                                    continue;
+                                }
+                                eqList.Add(new Data_Draw.Earthquake
+                                {
+                                    OriginTime = DateTime.Parse(s[0]),
+                                    HypoLat = double.Parse(s[1]),
+                                    HypoLon = double.Parse(s[2]),
+                                    Depth = double.Parse(s[3])
+                                });
+                                c++;
+                            }
+                            data_Draw.Earthquakes = [.. eqList];
                             break;
                         case "8":
                             OpenTar(ConAsk("展開するtarファイルのパスを入力してください。").Replace("\"", ""));
@@ -712,16 +729,7 @@ namespace KmoniReproducer
             var calSpan_out = calSpanCk_out[1] - calSpanCk_out[0];
             var dir_out = $"output\\shindo\\{data_Draw.CalStartTime:yyyyMMddHHmmss}-{data_Draw.Datas_Draw.Count}-{calSpan_out.TotalSeconds}s-{data_Draw.CalPeriod.TotalSeconds}s";
             Directory.CreateDirectory(dir_out);
-            File.WriteAllText($"{dir_out}\\_param.json",
-                "{" +
-                $"\"CalStartTime\":\"{data_Draw.CalStartTime}\"," +
-                $"\"TotalCalPeriodSec\":{data_Draw.TotalCalPeriodSec}," +
-                $"\"CalPeriod\":\"{data_Draw.CalPeriod}\"," +
-                $"\"OriginTime\":\"{data_Draw.OriginTime}\"," +
-                $"\"HypoLat\":{data_Draw.HypoLat}," +
-                $"\"HypoLon\":{data_Draw.HypoLon}," +
-                $"\"Depth\":{data_Draw.Depth}" +
-                "}");
+            File.WriteAllText($"{dir_out}\\_param.json", JsonSerializer.Serialize(data_Draw));
             foreach (var obsData in data_Draw.Datas_Draw)
                 File.WriteAllText($"{dir_out}\\{obsData.Key}.json", JsonSerializer.Serialize(obsData.Value));//観測点名によっては失敗するかも
             ConWrite($"{dir_out} に出力しました。", ConsoleColor.Green);
@@ -874,4 +882,28 @@ namespace KmoniReproducer
             Console.SetCursorPosition(currentLeft, currentLine);
         }
     }
+    public class DateTimeJsonConverter : JsonConverter<DateTime>
+    {
+        private static readonly string[] DateFormats =
+        [
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm:ss.f"
+        ];
+
+        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.GetString() is string dateString)
+            {
+                foreach (var format in DateFormats)
+                    if (DateTime.TryParseExact(dateString, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTime))
+                        return dateTime;
+            }
+            throw new JsonException("Invalid date format");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.ToString("yyyy/MM/dd HH:mm:ss.f", CultureInfo.InvariantCulture));
+    }
+
+
 }
