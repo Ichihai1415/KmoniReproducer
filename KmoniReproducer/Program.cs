@@ -248,10 +248,24 @@ namespace KmoniReproducer
                                 break;
                             }
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み中...", ConsoleColor.Blue);
-                            var files = Directory.EnumerateFiles(dir_in, "*.json").Where(x => !x.EndsWith("_param.json"));
+                            var files = Directory.EnumerateFiles(dir_in, "*.json", SearchOption.AllDirectories).Where(x => !x.EndsWith("_param.json"));
                             data_Draw = JsonSerializer.Deserialize<Data_Draw>(File.ReadAllText($"{dir_in}\\_param.json"))!;
-                            data_Draw.Datas_Draw = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null).ToDictionary(k => k!.StationName, v => v!);
+                            var tmp = files.Select(x => JsonSerializer.Deserialize<Data_Draw.ObsDataD>(File.ReadAllText(x))).Where(x => x != null);
+                            foreach (var t in tmp)
+                                if (data_Draw.Datas_Draw.ContainsKey(t!.StationName))
+                                    foreach (var t2 in t.TimeInt)
+                                        if (data_Draw.Datas_Draw[t.StationName].TimeInt.TryGetValue(t2.Key, out double value))
+                                            if (t2.Value > value)
+                                                value = t2.Value;
+                                            else
+                                                data_Draw.Datas_Draw[t.StationName].TimeInt[t2.Key] = t2.Value;
+                                        else
+                                            data_Draw.Datas_Draw[t.StationName].TimeInt[t2.Key] = t2.Value;
+                                else
+                                    data_Draw.Datas_Draw[t.StationName] = t;
                             ConWrite($"{DateTime.Now:HH:mm:ss.ffff} 読み込み完了", ConsoleColor.Blue);
+                            ConWrite($"dataCount(int):{data_Draw.Datas_Draw.Count}  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
+
                             break;
                         case "5":
                             if (data_Draw == null)
@@ -332,7 +346,7 @@ namespace KmoniReproducer
                                 ConWrite("先に震度を計算または読み込みしてください。", ConsoleColor.Red);
                                 break;
                             }
-                            ConWrite("複数の震源情報を設定できます。それぞれの地震について、発生日時,緯度,経度,深さ のようにコンマ区切りで入力してください。※途中で失敗すると設定されません。例:2024/01/01 00:00:00.0,35.79,135.79,12.3");
+                            ConWrite("複数の震源情報を設定できます。それぞれの地震について、発生日時,緯度,経度,深さ のようにコンマ区切りで、または震度データベースCSV形式(不明のものは入れないように)で入力してください。※途中で失敗すると設定されません。例:2024/01/01 00:00:00.0,35.79,135.79,12.3　2011/03/11,14:46:18.1,三陸沖,38°06.2′N,142°51.6′E,24 km,9.0,震度７");
                             var c = 1;
                             var eqList = new List<Data_Draw.Earthquake>();
                             while (true)
@@ -343,8 +357,18 @@ namespace KmoniReproducer
                                 var s = input.Split(',');
                                 if (s.Length != 4)
                                 {
-                                    ConWrite("入力文字列の形式が正しくありません。コンマは3つあるはずです。", ConsoleColor.Red);
-                                    continue;
+                                    if (s.Length != 8)
+                                    {
+                                        ConWrite("入力文字列の形式が正しくありません。コンマは3つか7つあるはずです。", ConsoleColor.Red);
+                                        continue;
+                                    }//2011/03/11,14:46:18.1,三陸沖,38°06.2′N,142°51.6′E,24 km,9.0,震度７
+                                    var s2 = input.Split(',');
+                                    var lats = s2[3].Split(['°', '′']);
+                                    var lons = s2[4].Split(['°', '′']);
+                                    s[0] = s2[0] + " " + s2[1];
+                                    s[1] = lats[0] + "." + (double.Parse(lats[1]) / 60d).ToString()[2..];
+                                    s[2] = lons[0] + "." + (double.Parse(lons[1]) / 60d).ToString()[2..];
+                                    s[3] = s2[5].Split(' ')[0];
                                 }
                                 eqList.Add(new Data_Draw.Earthquake
                                 {
@@ -520,6 +544,7 @@ namespace KmoniReproducer
 
             if (calTimeBefore)
             {
+                ConWrite($"開始: {DateTime.Now:yyyy/MM/dd HH:mm:ss}", ConsoleColor.Green);
                 ConWrite($"{DateTime.Now:HH:mm:ss.ffff} データ量確認中...", ConsoleColor.Blue);
                 List<int> totalValidDataCount = [];
                 for (var drawTime = startTime; drawTime < endTime; drawTime += calSpan)
@@ -694,6 +719,7 @@ namespace KmoniReproducer
 
             ConWrite($"\n{DateTime.Now:HH:mm:ss.ffff} 震度計算完了", ConsoleColor.Blue);
             ConWrite($"dataCount(int):{drawData.Datas_Draw.Count}  RAM:{GC.GetTotalMemory(true) / 1024d / 1024d:F2}MB", ConsoleColor.Green);
+            ConWrite($"終了: {DateTime.Now:yyyy/MM/dd HH:mm:ss}", ConsoleColor.Green);
         }
 
         /// <summary>
